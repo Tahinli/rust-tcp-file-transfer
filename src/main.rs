@@ -47,7 +47,11 @@ impl FileInfo
                             {
                                 match File::write_all(file_descriptor, &mut self.bytes)
                                     {
-                                        Ok(_) => println!("Done: Write -> {} bytes", &mut self.size),
+                                        Ok(_) =>
+                                            {
+                                                self.size = self.bytes.len();
+                                                println!("Done: Write -> {} bytes", &mut self.size);
+                                            }
                                         Err(err_val) => println!("Error: Write {}", err_val),
                                     }
                             }
