@@ -45,10 +45,10 @@ impl FileInfo
                     {
                         Some(ref mut file_descriptor) =>
                             {
-                                match File::write_all(file_descriptor, &self.bytes)
+                                match File::write_all(file_descriptor, &mut self.bytes)
                                     {
-                                        Ok(_) => println!("Done:Writing"),
-                                        Err(err_val) => println!("Failed:Writing {}", err_val),
+                                        Ok(_) => println!("Done: Write -> {} bytes", &mut self.size),
+                                        Err(err_val) => println!("Error: Write {}", err_val),
                                     }
                             }
                         None =>
@@ -93,7 +93,7 @@ impl Connection
                                         while stay 
                                             {
                                                 let mut data = vec![];
-                                                match stream.read(&mut data)
+                                                match stream.read_to_end(&mut data)
                                                     {
                                                         Ok(res) =>
                                                             {
@@ -102,7 +102,8 @@ impl Connection
                                                                         println!("Connection Closed");
                                                                         return;
                                                                     }
-                                                                FileInfo::write_file(file_info)
+                                                                file_info.bytes = data;
+                                                                FileInfo::write_file(file_info);
                                                             }
                                                         Err(e) => 
                                                             {
@@ -144,7 +145,7 @@ impl Connection
                                 println!("Connected");
                                 FileInfo::read_file(file_info);
                                 FileInfo::file_to_byte(file_info);
-                                socket.write(&file_info.bytes).unwrap();
+                                socket.write_all(&file_info.bytes).unwrap();
                             }
                         Err(e) =>
                             {
