@@ -23,16 +23,16 @@ jobs:
           run: cargo test --verbose
          
         - name: Changelog
-          uses: thomaseizinger/keep-a-changelog-new-release@v1
+          uses: ardalanamini/auto-changelog@v4
+          id  : changelog
           with:
-             tag: v0.0.1
-        
+             github-token: ${{ github.token }}
+             release-name: v0.0.1
+
         - name: Release
-          uses: docker://antonyurchenko/git-release:latest
-          env:
-             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          uses: softprops/action-gh-release@v0.1.15
+          id: tag
           with:
-             args: |
-                darwin-amd64.zip
-                linux-amd64.zip
-                windows-amd64.zip
+             tag_name: ${{ steps.tag.outputs.tag }}
+        
+         
