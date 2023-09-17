@@ -33,7 +33,7 @@ jobs:
           env:
              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           with:
-             tag_name: ${{ step.changelog.outputs.tag }}
+             tag_name: ${{ steps.changelog.outputs.tag }}
              release_name: ${{ github.event.release.tag_name }}
              body: ${{ steps.release.outputs.clean_changelog }}
 
