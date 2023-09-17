@@ -22,18 +22,20 @@ jobs:
           run: cargo build --verbose
         - name: Run tests
           run: cargo test --verbose
+
         - name: Conventional
           id: changelog
           uses: TriPSs/conventional-changelog-action@v4
           with:
              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
         - name: Release
           id: release
           uses: actions/create-release@v1
           env:
              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           with:
-             tag_name: ${{ steps.changelog.outputs.tag }}
+             tag_name: ${{ steps.build.outputs.tag }}
              release_name: ${{ github.event.release.tag_name }}
              body: ${{ steps.release.outputs.clean_changelog }}
 
