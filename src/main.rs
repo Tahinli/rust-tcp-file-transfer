@@ -1,4 +1,5 @@
 use std::fs::File;
+use std::time::Instant;
 use std::net::{TcpListener, TcpStream};
 use std::io::{Read, Write, self};
 use std::env::{self};
@@ -97,6 +98,7 @@ impl Connection
                                         while stay 
                                             {
                                                 let mut data = vec![];
+                                                let start_time = Instant::now();
                                                 match stream.read_to_end(&mut data)
                                                     {
                                                         Ok(res) =>
@@ -107,7 +109,12 @@ impl Connection
                                                                         return;
                                                                     }
                                                                 file_info.bytes = data;
+                                                                let start_disk_time = Instant::now();
+                                                                println!("Passed: Network -> {:#?}", start_disk_time.duration_since(start_time));
                                                                 FileInfo::write_file(file_info);
+                                                                let finish_time = Instant::now();
+                                                                println!("Passed: Write -> {:#?}", finish_time.duration_since(start_disk_time));
+                                                                println!("Passed: Total -> {:#?}", finish_time.duration_since(start_time));
                                                             }
                                                         Err(e) => 
                                                             {
@@ -146,10 +153,16 @@ impl Connection
                     {
                         Ok(mut socket) =>
                             {
+                                let start_time = Instant::now();
                                 println!("Connected");
                                 FileInfo::read_file(file_info);
                                 FileInfo::file_to_byte(file_info);
+                                let start_network_time = Instant::now();
+                                println!("Passed: Read -> {:#?}", start_network_time.duration_since(start_time));
                                 socket.write_all(&file_info.bytes).unwrap();
+                                let finish_time = Instant::now();
+                                println!("Passed: Network -> {:#?}", finish_time.duration_since(start_network_time));
+                                println!("Passed: Total -> {:#?}", finish_time.duration_since(start_time));
                             }
                         Err(e) =>
                             {
