@@ -23,16 +23,12 @@ jobs:
           run: cargo test --verbose
 
         
-        - name: Changelog
-          id: changelog
-          uses: heinrichreimer/github-changelog-generator-action@v2.3
-          with:
-             token: ${{ secrets.GITHUB_TOKEN }}
-          
-
         - name: Release
-          uses: elgohr/Github-Release-Action@v4
+          uses: anton-yurchenko/git-release@v5.0.2
           env:
              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           with:
-             title: ${{ steps.changelog.outputs.changelog }}
+             args: |
+                darwin-amd64.zip
+                linux-amd64.zip
+                windows-amd64.zip
