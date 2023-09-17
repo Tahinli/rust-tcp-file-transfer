@@ -29,7 +29,6 @@ jobs:
              github-token: ${{ secrets.CHANGELOG_RELEASE }}
         - name: Release
           uses: actions/create-release@v1
-          #if: ${{ steps.changelog.outputs.skipped == 'false' }}
           env:
              GITHUB_TOKEN: ${{ secrets.CHANGELOG_RELEASE }}
           with:
