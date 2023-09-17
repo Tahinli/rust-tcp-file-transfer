@@ -23,11 +23,33 @@ jobs:
         - name: Run tests
           run: cargo test --verbose
 
-        - name: Conventional
-          id: version
-          uses: TriPSs/conventional-changelog-action@v4
+        
+        - name: Changelog
+          uses: ardalanamini/auto-changelog@v4
+          id  : changelog
           with:
-             github-token: ${{ secrets.GITHUB_TOKEN }}
+             github-token            : ${{ github.token }}
+             commit-types            : |
+                feat: New Features
+                fix: Bug Fixes
+                build: Build System & Dependencies
+                perf: Performance Improvements
+                docs: Documentation
+                test: Tests
+                refactor: Refactors
+                chore: Chores
+                ci: CI
+                style: Code Style
+                revert: Reverts
+             default-commit-type     : Other Changes
+             release-name-prefix     : ""
+             mention-authors         : true
+             mention-new-contributors: true
+             include-compare-link    : true
+             include-pr-links        : true
+             include-commit-links    : true
+             semver                  : true
+             use-github-autolink     : true
 
         - name: Release
           id: release_id
