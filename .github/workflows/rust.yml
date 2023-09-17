@@ -35,4 +35,4 @@ jobs:
           env:
              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           with:
-             title: ${{ steps.changelog.outputs.release-id }}
+             title: ${{ steps.changelog.outputs.changelog }}
