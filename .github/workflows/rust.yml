@@ -18,11 +18,12 @@ jobs:
      steps:
         - uses: actions/checkout@v3
         - name: Build
-          run: 
-             cargo build --release |
-             chmod +x target/release/rust-tcp-file-transfer
+          run:  cargo build --release
         - name: Run tests
           run: cargo test --verbose
+
+        - name: Executable
+          run: chmod +x /home/runner/work/rust-tcp-transfer/target/release/rust-tcp-file-transfer
          
         - name: Changelog
           uses: ardalanamini/auto-changelog@v4
@@ -30,7 +31,7 @@ jobs:
           with:
              github-token: ${{ github.token }}
              release-name: v0.0.1
-
+ 
         - name: Release
           uses: softprops/action-gh-release@v0.1.15
           id: tag
