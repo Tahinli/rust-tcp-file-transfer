@@ -26,6 +26,7 @@ jobs:
         - name: Changelog
           uses: ardalanamini/auto-changelog@v4
           id  : changelog
+          
 
         - name: Release
           id: release_id
