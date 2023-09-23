@@ -33,7 +33,9 @@ jobs:
              tag_name: Release
              body_path: Release.txt
              generate_release_notes: true
-             files: target/release/rust-tcp-file-transfer
+             files: |
+                    target/release/rust-tcp-file-transfer
+                    Release.txt
         
         
          
