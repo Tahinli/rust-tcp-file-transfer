@@ -3,7 +3,11 @@
 TCP File Transfer Server and Client in Rust
 
 ☑ File transfer over network.
+
 ☐ Remove memory boundaries.
+
 ☐ Folder transfer.
+
 ☐ Remember where it stops.
+
 ☐ Reach over NAT (peer to peer).
