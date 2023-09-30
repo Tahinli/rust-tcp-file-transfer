@@ -8,6 +8,6 @@ TCP File Transfer Server and Client in Rust
 
 ☐ Folder transfer.
 
-☐ Remember where it stops.
+☐ Remember where it stoped.
 
 ☐ Reach over NAT (peer to peer).
