@@ -15,9 +15,14 @@ jobs:
         permissions:
             contents: write
         steps:
+            - name: Run tests
+              run: cargo test --verbose
+
+
             - uses: actions/checkout@v3
             - name: Build Linux x86
               run:  cargo build --release
+
 
             - uses: actions-rs/toolchain@v1
               name: Toolchain Windows x86
@@ -25,12 +30,14 @@ jobs:
                   toolchain: stable
                   target: x86_64-pc-windows-gnu
             
-            - uses: actions-rs/toolchain@v1
-              name: Toolchain Apple x86
-              with:
-                  toolchain: stable
-                  target: x86_64-apple-darwin
 
+            #- uses: actions-rs/toolchain@v1
+            #  name: Toolchain Apple x86
+            #  with:
+            #      toolchain: stable
+            #      target: x86_64-apple-darwin
+
+                  
             - uses: actions-rs/cargo@v1
               name: Build Windows x86
               with:
@@ -47,8 +54,7 @@ jobs:
             #      args: --release --target x86_64-apple-darwin
                   
 
-            - name: Run tests
-              run: cargo test --verbose
+            
 
             - name: Set short git commit SHA
               id: vars
