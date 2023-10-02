@@ -19,6 +19,18 @@ jobs:
             - name: Build Linux x86
               run:  cargo build --release
 
+            - uses: actions-rs/toolchain@v1
+              name: Toolchain Windows x86
+              with:
+                  toolchain: stable
+                  target: x86_64-pc-windows-msvc
+            
+            - uses: actions-rs/toolchain@v1
+              name: Toolchain Apple x86
+              with:
+                  toolchain: stable
+                  target: x86_64-apple-darwin
+
             - uses: actions-rs/cargo@v1
               name: Build Windows x86
               with:
