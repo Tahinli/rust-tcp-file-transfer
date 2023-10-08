@@ -1,17 +1,17 @@
 use std::fs::{File, Metadata, self};
 use std::time::Instant;
 use std::net::{TcpListener, TcpStream};
-use std::io::{Read, Write, self, BufReader};
+use std::io::{Read, Write, self};
 use std::env::{self};
+
+
+const BUFFER_SIZE:usize = 1024;
 
 struct FileInfo
     {
         file:Option<File>,
-        reader:Option<BufReader<File>>,
         location:String,
-        bytes_current:Vec<u8>,
         size_current:usize,
-        size_total:Option<usize>,
         metadata:Option<Metadata>,
     }
 impl FileInfo 
@@ -25,13 +25,13 @@ impl FileInfo
                             {
                                 if Metadata::is_file(metadata)
                                     {
-                                        self.size_total = Some(Metadata::len(&metadata) as usize);
                                         self.read_file();
+                                        self.file_to_byte(stream);
                                     }
                                 else if Metadata::is_symlink(metadata)
                                     {
-                                        self.size_total = Some(Metadata::len(&metadata) as usize);
                                         self.read_file();
+                                        self.file_to_byte(stream);
                                     }
                                 else 
                                     {
@@ -45,22 +45,10 @@ impl FileInfo
                                 println!("Error: Read Metadata -> {}", self.location);
                             }
                     }
-                match self.size_total
-                    {
-                        Some(ref mut size_total) =>
-                            {
-
-                                self.file_to_byte(stream)
-                            }
-                        None =>
-                            {
-                                println!("Error: Read Size -> {}", self.location);
-                            }
-                    }
             }
         fn writing_operations(&mut self, stream:&mut TcpStream)
             {
-                self.write_file();
+                self.write_file(stream);
             }
         fn read_metadata(&mut self)
             {
@@ -74,7 +62,6 @@ impl FileInfo
                         Ok(file) =>
                             {
                                 self.file = Some(file);
-                                self.reader = Some(BufReader::new(file));
                             }
                         Err(err_val) =>
                             {
@@ -85,75 +72,89 @@ impl FileInfo
             }
         fn file_to_byte(&mut self, stream:&mut TcpStream)
             {
-                self.bytes_current.clear();
-                match self.file 
+                
+                //replace with readbuffer ?                
+                let mut iteration = (self.metadata.as_ref().unwrap().len()/BUFFER_SIZE as u64)+1;
+                while iteration != 0
                     {
-                        Some(ref mut file_descriptor) => 
+                        iteration -= 1;
+                        let mut buffer = [0u8;BUFFER_SIZE];                                
+                        match self.file.as_ref().as_mut().unwrap().read(&mut buffer)
                             {
-                                //replace with readbuffer ?
-                                match self.reader
+                                Ok(read_size) =>
                                     {
-                                        Some(reader) =>
+                                        self.size_current += read_size;
+                                        if iteration != 0 
                                             {
-                                                // I don't know what to do
-                                            }
-                                        None =>
-                                            {
-
-                                            }
-                                    }
-                                match File::read_exact(file_descriptor, &mut self.bytes_current)
-                                    {
-                                        Ok(_) => 
-                                            {
-                                                self.size_current = self.size_current+self.bytes_current.len();
-                                                //need to send data, or call here from connection
-                                                match stream.write_all(&self.bytes_current)
+                                                match stream.write_all(&mut buffer)
                                                     {
                                                         Ok(_) =>
                                                             {
-                                                                // We will track when we stop later
+                                                                println!("Done: Send Bytes -> {}", self.location);
                                                             }
                                                         Err(err_val) =>
                                                             {
-                                                                println!("Error: Send -> {} | Error: {}", self.location, err_val)
+                                                                println!("Error: Send Bytes -> {} | Error: {}", self.location, err_val);
                                                             }
                                                     }
-                                                if self.size_total == Some(self.size_current)
+                                            }
+                                        else 
+                                            {
+                                                println!("Son");
+                                                let mut last_buffer:Vec<u8> = (&buffer[..(self.metadata.as_ref().unwrap().len()%BUFFER_SIZE as u64)as usize]).to_vec();
+                                                println!("VEC = {:#?}", last_buffer);
+                                                match stream.write_all(&mut last_buffer)
                                                     {
-                                                        println!("Done: Read -> {} | Done: Read -> {} bytes", self.location, self.size_current);
-                                                    }
-                                                else 
-                                                    {
-                                                        self.file_to_byte(stream);
+                                                        Ok(_) =>
+                                                            {
+                                                                println!("Done: Send Last Bytes -> {}", self.location);
+                                                            }
+                                                        Err(err_val) =>
+                                                            {
+                                                                println!("Error: Send Last Bytes -> {} | Error: {}", self.location, err_val);
+                                                            }
                                                     }
                                             }
-                                        Err(err_val) => println!("Error: Read -> {} | Error: {}", self.location, err_val),
+                                        
+                                    }
+                                Err(err_val) =>
+                                    {
+                                        println!("Error: File to Byte -> {} | Error: {}", self.location, err_val);
                                     }
                             }
-                        None =>
-                            {
-                                println!("Error: File None -> {}", self.location);
-                            }
+                    
+                    
                     }
             }
-        fn write_file(&mut self)
+        fn write_file(&mut self, stream:&mut TcpStream)
             {
+                
                 //use match, there is a chance to fail creation. don't pass with just some
                 self.file = Some(File::create(&self.location).expect("Error: Create File"));
                 match self.file
                     {
                         Some(ref mut file_descriptor) =>
                             {
-                                match File::write_all(file_descriptor, &mut self.bytes)
+                                let mut buffer: Vec<u8> = Vec::new();
+                                match stream.read_to_end(&mut buffer)
                                     {
                                         Ok(_) =>
                                             {
-                                                self.size_total = self.bytes.len();
-                                                println!("Done: Write -> {} bytes", &mut self.size);
+                                                match File::write_all(file_descriptor, &mut buffer)
+                                                {
+                                                    Ok(_) =>
+                                                        {
+                                                            self.size_current += buffer.len();
+                                                            println!("Done: Write -> {} bytes", &mut self.size_current);
+                                                        }
+                                                    Err(err_val) => println!("Error: Write {}", err_val),
+                                                }
                                             }
-                                        Err(err_val) => println!("Error: Write {}", err_val),
-                                    }
+                                        Err(err_val) =>
+                                            {
+                                                println!("Error: Recv Bytes -> {} | Error: {}", self.location, err_val);
+                                            }
+                                    }            
                             }
                         None =>
                             {
@@ -193,31 +194,14 @@ impl Connection
                             {
                                 Ok(mut stream) =>
                                     {
-                                        let stay = true;
+                                        let mut stay = true;
                                         while stay 
                                             {
-                                                let mut data = vec![];
                                                 let start_time = Instant::now();
-                                                match stream.read_to_end(&mut data)
-                                                    {
-                                                        Ok(res) =>
-                                                            {
-                                                                if res == 0
-                                                                    {
-                                                                        println!("Connection Closed");
-                                                                        return;
-                                                                    }
-                                                                file_info.bytes = data;
-                                                                FileInfo::writing_operations(file_info, &mut stream);
-                                                                let finish_time = Instant::now();
-                                                                println!("Passed: Total -> {:#?}", finish_time.duration_since(start_time));
-                                                            }
-                                                        Err(e) => 
-                                                            {
-                                                                println!("Error: Failed to Read -> {}", e);
-                                                                return;
-                                                            }
-                                                    }
+                                                FileInfo::writing_operations(file_info, &mut stream);
+                                                let finish_time = Instant::now();
+                                                println!("Passed: Total -> {:#?}", finish_time.duration_since(start_time));
+                                                stay = false;
                                             }
                                     }
                                 Err(e) =>
@@ -287,11 +271,8 @@ fn main()
         let mut data = FileInfo
             {
                 file:None,
-                reader:None,
                 location:take_arg(),
-                bytes_current:Vec::with_capacity(1024),
                 size_current:0 as usize,
-                size_total:None,
                 metadata:None,
             };
         match &take_string("Input: Server 's', Client 'c'".to_string())[0..1]
