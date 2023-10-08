@@ -5,7 +5,7 @@ use std::io::{Read, Write, self};
 use std::env::{self};
 
 
-const BUFFER_SIZE:usize = 1024;
+const BUFFER_SIZE:usize = 100000;
 
 struct FileInfo
     {
@@ -72,9 +72,32 @@ impl FileInfo
             }
         fn file_to_byte(&mut self, stream:&mut TcpStream)
             {
-                
                 //replace with readbuffer ?                
                 let mut iteration = (self.metadata.as_ref().unwrap().len()/BUFFER_SIZE as u64)+1;
+                let mut handshake = [0u8;BUFFER_SIZE];
+                handshake[..self.metadata.as_ref().unwrap().len().to_string().as_bytes().len()].copy_from_slice(self.metadata.as_ref().unwrap().len().to_string().as_bytes());
+                match stream.write_all(&mut handshake)
+                    {
+                        Ok(_) =>
+                            {
+                                let mut handshake_callback = [0u8;BUFFER_SIZE];
+                                match stream.read_exact(&mut handshake_callback)
+                                    {
+                                        Ok(_) =>
+                                            {
+                                                println!("Done: Handshake -> {}", self.location);
+                                            }
+                                        Err(err_val) =>
+                                            {
+                                                println!("Error: Handshake Recv -> {} | Error: {}", self.location, err_val);
+                                            }
+                                    }
+                            }
+                        Err(err_val) =>
+                            {
+                                println!("Error: Handshake Send -> {} | Error: {}", self.location, err_val);
+                            }
+                    }
                 while iteration != 0
                     {
                         iteration -= 1;
@@ -90,19 +113,29 @@ impl FileInfo
                                                     {
                                                         Ok(_) =>
                                                             {
-                                                                println!("Done: Send Bytes -> {}", self.location);
+                                                                println!("Done: Send Bytes -> {} | Iteration = {}", self.location, iteration);
                                                             }
                                                         Err(err_val) =>
                                                             {
                                                                 println!("Error: Send Bytes -> {} | Error: {}", self.location, err_val);
+                                                                return;
+                                                            }
+                                                    }
+                                                match stream.flush()
+                                                    {
+                                                        Ok(_) =>
+                                                            {
+                                                                println!("Done: Flush -> {}", self.location);
+                                                            }
+                                                        Err(err_val) =>
+                                                            {
+                                                                println!("Error: Flush -> {} | Error: {}", self.location, err_val);
                                                             }
                                                     }
                                             }
                                         else 
-                                            {
-                                                println!("Son");
-                                                let mut last_buffer:Vec<u8> = (&buffer[..(self.metadata.as_ref().unwrap().len()%BUFFER_SIZE as u64)as usize]).to_vec();
-                                                println!("VEC = {:#?}", last_buffer);
+                                            {                                                
+                                                let mut last_buffer:Vec<u8> = (&buffer[..(self.metadata.as_ref().unwrap().len()%BUFFER_SIZE as u64)as usize]).to_vec();                                                
                                                 match stream.write_all(&mut last_buffer)
                                                     {
                                                         Ok(_) =>
@@ -128,33 +161,64 @@ impl FileInfo
             }
         fn write_file(&mut self, stream:&mut TcpStream)
             {
-                
                 //use match, there is a chance to fail creation. don't pass with just some
                 self.file = Some(File::create(&self.location).expect("Error: Create File"));
                 match self.file
                     {
                         Some(ref mut file_descriptor) =>
                             {
-                                let mut buffer: Vec<u8> = Vec::new();
-                                match stream.read_to_end(&mut buffer)
+                                let mut handshake = [0u8;BUFFER_SIZE];
+                                let mut size:u64 = 0;
+                                match stream.read_exact(&mut handshake)
                                     {
                                         Ok(_) =>
                                             {
-                                                match File::write_all(file_descriptor, &mut buffer)
-                                                {
-                                                    Ok(_) =>
-                                                        {
-                                                            self.size_current += buffer.len();
-                                                            println!("Done: Write -> {} bytes", &mut self.size_current);
-                                                        }
-                                                    Err(err_val) => println!("Error: Write {}", err_val),
-                                                }
+                                                todo!();
+                                                size = String::from_utf8(handshake.to_vec()).unwrap().parse().unwrap();
+                                                println!("Done: Handshake Recv -> {}", self.location);
+                                                match stream.write_all(&mut handshake)
+                                                    {
+                                                        Ok(_) =>
+                                                            {
+                                                                println!("Done: Handshake Send -> {}", self.location);
+                                                            }
+                                                        Err(err_val) =>
+                                                            {
+                                                                println!("Error: Handshake Send -> {} | Error: {}", self.location, err_val);
+                                                            }
+                                                    }
                                             }
                                         Err(err_val) =>
                                             {
-                                                println!("Error: Recv Bytes -> {} | Error: {}", self.location, err_val);
+                                                println!("Error: Handshake Recv -> {} | Error: {}", self.location, err_val);
                                             }
-                                    }            
+                                    }
+                                let mut iteration:u64 = (size%BUFFER_SIZE as u64)+1;
+                                while iteration != 0
+                                    {
+                                        iteration -= 1;
+                                        //let mut buffer: Vec<u8> = Vec::new();
+                                        let mut buffer = [0u8;BUFFER_SIZE];                                
+                                        match stream.read(&mut buffer)
+                                            {
+                                                Ok(_) =>
+                                                    {
+                                                        match File::write_all(file_descriptor, &mut buffer)
+                                                        {
+                                                            Ok(_) =>
+                                                                {
+                                                                    self.size_current += buffer.len();
+                                                                    println!("Done: Write -> {} bytes", &mut self.size_current);
+                                                                }
+                                                            Err(err_val) => println!("Error: Write {}", err_val),
+                                                        }
+                                                    }
+                                                Err(err_val) =>
+                                                    {
+                                                        println!("Error: Recv Bytes -> {} | Error: {}", self.location, err_val);
+                                                    }
+                                            }   
+                                    }         
                             }
                         None =>
                             {
