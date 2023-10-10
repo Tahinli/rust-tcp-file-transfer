@@ -71,18 +71,26 @@ impl FileInfo
                 
             }
         fn file_to_byte(&mut self, stream:&mut TcpStream)
-            {
-                //replace with readbuffer ?                
+            {       
                 let mut iteration = (self.metadata.as_ref().unwrap().len()/BUFFER_SIZE as u64)+1;
-                let mut handshake = [0u8;BUFFER_SIZE];
-                handshake[..self.metadata.as_ref().unwrap().len().to_string().as_bytes().len()].copy_from_slice(self.metadata.as_ref().unwrap().len().to_string().as_bytes());
-                let mut writer_stream = BufWriter::new(stream.try_clone().unwrap());
-                let mut reader_stream = BufReader::new(stream.try_clone().unwrap());
-                match writer_stream.write_all(&mut handshake)
+                let mut stream_writer = BufWriter::new(stream.try_clone().unwrap());
+                let mut stream_reader = BufReader::new(stream.try_clone().unwrap());
+                match stream_writer.write_all(self.metadata.as_ref().unwrap().len().to_string().as_bytes())
                     {
                         Ok(_) =>
                             {
-                                match writer_stream.flush()
+                                match stream_writer.write_all(String::from("\n").as_bytes())
+                                            {
+                                                Ok(_) =>
+                                                    {
+                                                        println!("Done: Send Terminator -> {}", self.location);
+                                                    }
+                                                Err(err_val) =>
+                                                    {
+                                                        println!("Error: Send Terminator -> {} | Error: {}", self.location, err_val);
+                                                    }
+                                            }
+                                match stream_writer.flush()
                                     {
                                         Ok(_) =>
                                             {
@@ -93,16 +101,27 @@ impl FileInfo
                                                 println!("Error: Flush Handshake -> {} | Error: {}", self.location, err_val);
                                             }
                                     }
-                                let mut handshake_callback = [0u8;BUFFER_SIZE];
-                                match reader_stream.read_exact(&mut handshake_callback)
+                                let mut handshake_callback:Vec<u8> = Vec::new();
+                                match stream_reader.read_until( b'\n',&mut handshake_callback)
                                     {
                                         Ok(_) =>
                                             {
-                                                println!("Done: Handshake -> {}", self.location);
+                                                println!("Done: Handshake Callback -> {}", self.location);
+                                                handshake_callback.pop();
+                                                if handshake_callback.as_slice() == self.metadata.as_ref().unwrap().len().to_string().as_bytes()
+                                                    {
+                                                        println!("Done: Handshake Correct -> {}", self.location);
+                                                    }
+                                                else 
+                                                    {
+                                                        println!("Error: Handshake Incorrect -> {}", self.location);
+                                                        return;
+                                                    }
                                             }
                                         Err(err_val) =>
                                             {
                                                 println!("Error: Handshake Recv -> {} | Error: {}", self.location, err_val);
+                                                return;
                                             }
                                     }
                             }
@@ -112,6 +131,8 @@ impl FileInfo
                                 return;
                             }
                     }
+                println!("Size = {}", self.metadata.as_ref().unwrap().len());
+                println!("Iteration = {}", iteration);
                 while iteration != 0
                     {
                         iteration -= 1;
@@ -124,11 +145,11 @@ impl FileInfo
                                         self.size_current += read_size;
                                         if iteration != 0 
                                             {
-                                                match writer_stream.write_all(&mut buffer)
+                                                match stream_writer.write_all(&mut buffer)
                                                     {
                                                         Ok(_) =>
                                                             {
-                                                                println!("Done: Send Bytes -> {} | Iteration = {}", self.location, iteration);
+                                                                //println!("Done: Send Bytes -> {} | Iteration = {}", self.location, iteration);
                                                             }
                                                         Err(err_val) =>
                                                             {
@@ -140,7 +161,7 @@ impl FileInfo
                                         else 
                                             {                                                
                                                 let mut last_buffer:Vec<u8> = (&buffer[..(self.metadata.as_ref().unwrap().len()%BUFFER_SIZE as u64)as usize]).to_vec();                                                
-                                                match writer_stream.write_all(&mut last_buffer)
+                                                match stream_writer.write_all(&mut last_buffer)
                                                     {
                                                         Ok(_) =>
                                                             {
@@ -152,11 +173,22 @@ impl FileInfo
                                                             }
                                                     }
                                             }
-                                        match writer_stream.flush()
+                                        match stream_writer.write_all(String::from("\n").as_bytes())
                                             {
                                                 Ok(_) =>
                                                     {
-                                                        println!("Done: Flush -> {}", self.location);
+                                                        //println!("Done: Send Terminator -> {}", self.location);
+                                                    }
+                                                Err(err_val) =>
+                                                    {
+                                                        println!("Error: Send Terminator -> {} | Error: {}", self.location, err_val);
+                                                    }
+                                            }
+                                        match stream_writer.flush()
+                                            {
+                                                Ok(_) =>
+                                                    {
+                                                        //println!("Done: Flush -> {}", self.location);
                                                     }
                                                 Err(err_val) =>
                                                     {
@@ -178,21 +210,20 @@ impl FileInfo
             {
                 //use match, there is a chance to fail creation. don't pass with just some
                 self.file = Some(File::create(&self.location).expect("Error: Create File"));
-                let mut file_reader = BufReader::new(self.file.as_ref().unwrap());
                 let mut file_writer = BufWriter::new(self.file.as_ref().unwrap());
                 let mut stream_reader = BufReader::new(stream.try_clone().unwrap());
                 let mut stream_writer = BufWriter::new(stream.try_clone().unwrap());
-                let mut size:u64 = 0;
+                let size:u64;
                 let mut handshake:Vec<u8> = Vec::new();
                 match stream_reader.read_until(b'\n',&mut handshake)
                     {
                         Ok(_) =>
                             {
                                 //read until and take
-                                todo!();
-                                size = String::from_utf8(handshake.to_vec()).unwrap().parse().unwrap();
+                                handshake.pop();
+                                size = String::from_utf8(handshake.clone()).unwrap().parse().unwrap();
                                 println!("Done: Handshake Recv -> {}", self.location);
-                                match stream.write_all(&mut handshake)
+                                match stream_writer.write_all(&mut handshake)
                                     {
                                         Ok(_) =>
                                             {
@@ -201,33 +232,78 @@ impl FileInfo
                                         Err(err_val) =>
                                             {
                                                 println!("Error: Handshake Send -> {} | Error: {}", self.location, err_val);
+                                                return;
+                                            }
+                                    }
+                                match stream_writer.write_all(String::from("\n").as_bytes())
+                                    {
+                                        Ok(_) =>
+                                            {
+                                                println!("Done: Send Terminator -> {}", self.location);
+                                            }
+                                        Err(err_val) =>
+                                            {
+                                                println!("Error: Send Terminator -> {} | Error: {}", self.location, err_val);
+                                                return;
+                                            }
+                                    }
+                                match stream_writer.flush()
+                                    {
+                                        Ok(_) =>
+                                            {
+                                                println!("Done: Flush -> {}", self.location);
+                                            }
+                                        Err(err_val) =>
+                                            {
+                                                println!("Error: Flush -> {} | Error: {}", self.location, err_val);
+                                                return;
                                             }
                                     }
                             }
                         Err(err_val) =>
                             {
                                 println!("Error: Handshake Recv -> {} | Error: {}", self.location, err_val);
+                                return;
                             }
                     }
-                let mut iteration:u64 = (size%BUFFER_SIZE as u64)+1;
+                let mut iteration:u64 = (size/BUFFER_SIZE as u64)+1;
+                println!("Size = {}", size);
+                println!("Iteration = {}", iteration);
                 while iteration != 0
                     {
                         iteration -= 1;
-                        //let mut buffer: Vec<u8> = Vec::new();
                         let mut buffer = [0u8;BUFFER_SIZE];                                
-                        match stream.read(&mut buffer)
+                        match stream_reader.read_exact(&mut buffer)
                             {
                                 Ok(_) =>
                                     {
-                                        match File::write_all(file_descriptor, &mut buffer)
-                                        {
-                                            Ok(_) =>
-                                                {
-                                                    self.size_current += buffer.len();
-                                                    println!("Done: Write -> {} bytes", &mut self.size_current);
-                                                }
-                                            Err(err_val) => println!("Error: Write {}", err_val),
-                                        }
+                                        if iteration != 0
+                                            {
+                                                match file_writer.write_all(&mut buffer)
+                                                    {
+                                                        Ok(_) =>
+                                                            {
+                                                                self.size_current += buffer.len();
+                                                                //println!("Done: Write -> {} bytes | Iteration = {}", &mut self.size_current, iteration);
+                                                            }
+                                                        Err(err_val) => println!("Error: Write {}", err_val),
+                                                    }
+                                            }
+                                        else 
+                                            {                                                
+                                                let mut last_buffer:Vec<u8> = (&buffer[..(size%BUFFER_SIZE as u64)as usize]).to_vec();                                                
+                                                match stream_writer.write_all(&mut last_buffer)
+                                                    {
+                                                        Ok(_) =>
+                                                            {
+                                                                println!("Done: Recv Last Bytes -> {}", self.location);
+                                                            }
+                                                        Err(err_val) =>
+                                                            {
+                                                                println!("Error: Recv Last Bytes -> {} | Error: {}", self.location, err_val);
+                                                            }
+                                                    }
+                                            }
                                     }
                                 Err(err_val) =>
                                     {
