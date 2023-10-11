@@ -5,7 +5,7 @@ use std::io::{Read, Write, self, BufWriter, BufReader, BufRead};
 use std::env::{self};
 
 
-const BUFFER_SIZE:usize = 100000;
+const BUFFER_SIZE:usize = 1024;
 
 struct FileInfo
     {
@@ -66,6 +66,7 @@ impl FileInfo
                         Err(err_val) =>
                             {
                                 println!("Error: Open File -> {} | Error: {}", self.location, err_val);
+                                return;
                             }
                     }
                 
@@ -88,6 +89,7 @@ impl FileInfo
                                                 Err(err_val) =>
                                                     {
                                                         println!("Error: Send Terminator -> {} | Error: {}", self.location, err_val);
+                                                        return;
                                                     }
                                             }
                                 match stream_writer.flush()
@@ -99,6 +101,7 @@ impl FileInfo
                                         Err(err_val) =>
                                             {
                                                 println!("Error: Flush Handshake -> {} | Error: {}", self.location, err_val);
+                                                return;
                                             }
                                     }
                                 let mut handshake_callback:Vec<u8> = Vec::new();
@@ -143,45 +146,17 @@ impl FileInfo
                                 Ok(read_size) =>
                                     {
                                         self.size_current += read_size;
-                                        if iteration != 0 
-                                            {
-                                                match stream_writer.write_all(&mut buffer)
-                                                    {
-                                                        Ok(_) =>
-                                                            {
-                                                                //println!("Done: Send Bytes -> {} | Iteration = {}", self.location, iteration);
-                                                            }
-                                                        Err(err_val) =>
-                                                            {
-                                                                println!("Error: Send Bytes -> {} | Error: {}", self.location, err_val);
-                                                                return;
-                                                            }
-                                                    }
-                                            }
-                                        else 
-                                            {                                                
-                                                let mut last_buffer:Vec<u8> = (&buffer[..(self.metadata.as_ref().unwrap().len()%BUFFER_SIZE as u64)as usize]).to_vec();                                                
-                                                match stream_writer.write_all(&mut last_buffer)
-                                                    {
-                                                        Ok(_) =>
-                                                            {
-                                                                println!("Done: Send Last Bytes -> {}", self.location);
-                                                            }
-                                                        Err(err_val) =>
-                                                            {
-                                                                println!("Error: Send Last Bytes -> {} | Error: {}", self.location, err_val);
-                                                            }
-                                                    }
-                                            }
-                                        match stream_writer.write_all(String::from("\n").as_bytes())
+                                        //println!("{} | {} | {:#?}", iteration,buffer.len(), buffer);
+                                        match stream_writer.write_all(&mut buffer)
                                             {
                                                 Ok(_) =>
                                                     {
-                                                        //println!("Done: Send Terminator -> {}", self.location);
+                                                        println!("Done: Send Bytes -> {} | Iteration = {}", self.location, iteration);
                                                     }
                                                 Err(err_val) =>
                                                     {
-                                                        println!("Error: Send Terminator -> {} | Error: {}", self.location, err_val);
+                                                        println!("Error: Send Bytes -> {} | Error: {}", self.location, err_val);
+                                                        return;
                                                     }
                                             }
                                         match stream_writer.flush()
@@ -193,6 +168,7 @@ impl FileInfo
                                                 Err(err_val) =>
                                                     {
                                                         println!("Error: Flush -> {} | Error: {}", self.location, err_val);
+                                                        return;
                                                     }
                                             }
                                         
@@ -200,6 +176,7 @@ impl FileInfo
                                 Err(err_val) =>
                                     {
                                         println!("Error: File to Byte -> {} | Error: {}", self.location, err_val);
+                                        return;
                                     }
                             }
                     
@@ -272,44 +249,51 @@ impl FileInfo
                 while iteration != 0
                     {
                         iteration -= 1;
-                        let mut buffer = [0u8;BUFFER_SIZE];                                
+                        let mut buffer = [0u8;BUFFER_SIZE];
                         match stream_reader.read_exact(&mut buffer)
                             {
                                 Ok(_) =>
                                     {
+                                        self.size_current += buffer.len();
+                                        //println!("{} | {:#?}", iteration, buffer);
                                         if iteration != 0
                                             {
                                                 match file_writer.write_all(&mut buffer)
                                                     {
                                                         Ok(_) =>
                                                             {
-                                                                self.size_current += buffer.len();
-                                                                //println!("Done: Write -> {} bytes | Iteration = {}", &mut self.size_current, iteration);
+                                                                println!("Done: Write -> {} bytes | Iteration = {}", &mut self.size_current, iteration);
                                                             }
-                                                        Err(err_val) => println!("Error: Write {}", err_val),
+                                                        Err(err_val) => 
+                                                            {
+                                                                println!("Error: Write -> {} | Error: {}", self.location,err_val);
+                                                                return;
+                                                            }
                                                     }
                                             }
                                         else 
-                                            {                                                
-                                                let mut last_buffer:Vec<u8> = (&buffer[..(size%BUFFER_SIZE as u64)as usize]).to_vec();                                                
-                                                match stream_writer.write_all(&mut last_buffer)
+                                            {
+                                                match file_writer.write_all(&mut buffer[..(size%BUFFER_SIZE as u64)as usize])
                                                     {
                                                         Ok(_) =>
                                                             {
-                                                                println!("Done: Recv Last Bytes -> {}", self.location);
+                                                                println!("Done: Write Last -> {} bytes | Iteration = {}", &mut self.size_current, iteration);
                                                             }
                                                         Err(err_val) =>
                                                             {
-                                                                println!("Error: Recv Last Bytes -> {} | Error: {}", self.location, err_val);
+                                                                println!("Error: Write Last -> {} | Error: {}", self.location,err_val);
+                                                                return;
                                                             }
                                                     }
                                             }
                                     }
                                 Err(err_val) =>
                                     {
+                                        println!("{} | {:#?}", iteration, buffer);
                                         println!("Error: Recv Bytes -> {} | Error: {}", self.location, err_val);
+                                        return;
                                     }
-                            }   
+                            }
                     }         
             
                         
@@ -411,8 +395,6 @@ fn take_arg() -> String
     {
         env::args().last().as_deref().unwrap_or("default").to_string()
     }
-
-
 
 fn main() 
     {
