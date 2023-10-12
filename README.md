@@ -4,7 +4,7 @@ TCP File Transfer Server and Client in Rust
 
 ☑ File transfer over network.
 
-☐ Remove memory limitations.
+☑ Remove memory limitations.
 
 ☐ Folder transfer.
 
