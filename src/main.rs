@@ -5,7 +5,7 @@ use std::io::{Read, Write, self, BufWriter, BufReader, BufRead};
 use std::env::{self};
 
 
-const BUFFER_SIZE:usize = 1024;
+const BUFFER_SIZE:usize = 512;
 
 struct FileInfo
     {
@@ -139,43 +139,67 @@ impl FileInfo
                 while iteration != 0
                     {
                         iteration -= 1;
-                        let mut buffer = [0u8;BUFFER_SIZE];    
+                        let mut buffer = [0u8;BUFFER_SIZE];
                         let mut file_reader = BufReader::new(self.file.as_ref().unwrap());
-                        match file_reader.read(&mut buffer)
+                        if iteration != 0
                             {
-                                Ok(read_size) =>
+                                match file_reader.read_exact(&mut buffer)
                                     {
-                                        self.size_current += read_size;
-                                        //println!("{} | {} | {:#?}", iteration,buffer.len(), buffer);
-                                        match stream_writer.write_all(&mut buffer)
+                                        Ok(_) =>
                                             {
-                                                Ok(_) =>
-                                                    {
-                                                        println!("Done: Send Bytes -> {} | Iteration = {}", self.location, iteration);
-                                                    }
-                                                Err(err_val) =>
-                                                    {
-                                                        println!("Error: Send Bytes -> {} | Error: {}", self.location, err_val);
-                                                        return;
-                                                    }
+                                                self.size_current += buffer.len();
+                                                println!("Size now = {}", self.size_current);
+                                                //println!("{} | {} | {:#?}", iteration,buffer.len(), buffer);
+                                                
                                             }
-                                        match stream_writer.flush()
+                                        Err(err_val) =>
                                             {
-                                                Ok(_) =>
-                                                    {
-                                                        //println!("Done: Flush -> {}", self.location);
-                                                    }
-                                                Err(err_val) =>
-                                                    {
-                                                        println!("Error: Flush -> {} | Error: {}", self.location, err_val);
-                                                        return;
-                                                    }
+                                                println!("Error: File to Byte -> {} | Error: {}", self.location, err_val);
+                                                return;
                                             }
-                                        
+                                    }
+                            }
+                        else 
+                            {
+                                let mut last_buffer:Vec<u8> = Vec::new();
+                                match file_reader.read_to_end(&mut last_buffer)
+                                    {
+                                        Ok(read_size) =>
+                                            {
+                                                self.size_current += read_size;
+                                                last_buffer.append(&mut buffer[..(self.metadata.as_ref().unwrap().len()%BUFFER_SIZE as u64) as usize].to_vec());
+                                                buffer.copy_from_slice(&last_buffer);
+                                                println!("Size now = {}", self.size_current);
+                                                //println!("{} | {} | {:#?}", iteration,buffer.len(), buffer);
+                                            }
+                                        Err(err_val) =>
+                                            {
+                                                println!("Error: File to Byte Last -> {} | Error: {}", self.location, err_val);
+                                                return;
+                                            }
+                                    }
+                            }
+                        match stream_writer.write_all(&mut buffer)
+                            {
+                                Ok(_) =>
+                                    {
+                                        println!("Done: Send Bytes -> {} | Iteration = {}", self.location, iteration);
                                     }
                                 Err(err_val) =>
                                     {
-                                        println!("Error: File to Byte -> {} | Error: {}", self.location, err_val);
+                                        println!("Error: Send Bytes -> {} | Error: {}", self.location, err_val);
+                                        return;
+                                    }
+                            }
+                        match stream_writer.flush()
+                            {
+                                Ok(_) =>
+                                    {
+                                        //println!("Done: Flush -> {}", self.location);
+                                    }
+                                Err(err_val) =>
+                                    {
+                                        println!("Error: Flush -> {} | Error: {}", self.location, err_val);
                                         return;
                                     }
                             }
@@ -255,7 +279,7 @@ impl FileInfo
                                 Ok(_) =>
                                     {
                                         self.size_current += buffer.len();
-                                        //println!("{} | {:#?}", iteration, buffer);
+                                        println!("{} | {:#?}", iteration, buffer);
                                         if iteration != 0
                                             {
                                                 match file_writer.write_all(&mut buffer)
