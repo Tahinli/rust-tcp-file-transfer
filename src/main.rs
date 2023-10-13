@@ -1,13 +1,11 @@
 use std::fs::{File, Metadata, self};
-use std::os::unix::prelude::FileExt;
 use std::time::Instant;
 use std::net::{TcpListener, TcpStream};
-use std::io::{Read, Write, self, BufWriter, BufReader, BufRead, Seek};
+use std::io::{Read, Write, self, BufWriter, BufReader, BufRead};
 use std::env::{self};
 
 
-const BUFFER_SIZE:usize = 512;
-
+const BUFFER_SIZE:usize = 100000;
 struct FileInfo
     {
         file:Option<File>,
@@ -26,13 +24,13 @@ impl FileInfo
                             {
                                 if Metadata::is_file(metadata)
                                     {
-                                        self.read_file();
-                                        self.file_to_byte(stream);
+                                        self.open_file();
+                                        self.send_file(stream);
                                     }
                                 else if Metadata::is_symlink(metadata)
                                     {
-                                        self.read_file();
-                                        self.file_to_byte(stream);
+                                        self.open_file();
+                                        self.send_file(stream);
                                     }
                                 else 
                                     {
@@ -49,14 +47,14 @@ impl FileInfo
             }
         fn writing_operations(&mut self, stream:&mut TcpStream)
             {
+                self.forge_file();
                 self.write_file(stream);
             }
         fn read_metadata(&mut self)
             {
-                //use match, there is a chance to fail creation. don't pass with just some
                 self.metadata = Some(fs::metadata(&self.location).expect("Error: Read Metadata"));
             }
-        fn read_file(&mut self)
+        fn open_file(&mut self)
             {
                 match File::open(&self.location)
                     {
@@ -72,200 +70,187 @@ impl FileInfo
                     }
                 
             }
-        fn file_to_byte(&mut self, stream:&mut TcpStream)
-            {       
-                let mut iteration = (self.metadata.as_ref().unwrap().len()/BUFFER_SIZE as u64)+1;
-                let mut stream_writer = BufWriter::new(stream.try_clone().unwrap());
-                let mut stream_reader = BufReader::new(stream.try_clone().unwrap());
-                match stream_writer.write_all(self.metadata.as_ref().unwrap().len().to_string().as_bytes())
-                    {
-                        Ok(_) =>
-                            {
-                                match stream_writer.write_all(String::from("\n").as_bytes())
-                                            {
-                                                Ok(_) =>
-                                                    {
-                                                        println!("Done: Send Terminator -> {}", self.location);
-                                                    }
-                                                Err(err_val) =>
-                                                    {
-                                                        println!("Error: Send Terminator -> {} | Error: {}", self.location, err_val);
-                                                        return;
-                                                    }
-                                            }
-                                match stream_writer.flush()
-                                    {
-                                        Ok(_) =>
-                                            {
-                                                println!("Done: Flush Handshake -> {}", self.location);
-                                            }
-                                        Err(err_val) =>
-                                            {
-                                                println!("Error: Flush Handshake -> {} | Error: {}", self.location, err_val);
-                                                return;
-                                            }
-                                    }
-                                let mut handshake_callback:Vec<u8> = Vec::new();
-                                match stream_reader.read_until( b'\n',&mut handshake_callback)
-                                    {
-                                        Ok(_) =>
-                                            {
-                                                println!("Done: Handshake Callback -> {}", self.location);
-                                                handshake_callback.pop();
-                                                if handshake_callback.as_slice() == self.metadata.as_ref().unwrap().len().to_string().as_bytes()
-                                                    {
-                                                        println!("Done: Handshake Correct -> {}", self.location);
-                                                    }
-                                                else 
-                                                    {
-                                                        println!("Error: Handshake Incorrect -> {}", self.location);
-                                                        return;
-                                                    }
-                                            }
-                                        Err(err_val) =>
-                                            {
-                                                println!("Error: Handshake Recv -> {} | Error: {}", self.location, err_val);
-                                                return;
-                                            }
-                                    }
-                            }
-                        Err(err_val) =>
-                            {
-                                println!("Error: Handshake Send -> {} | Error: {}", self.location, err_val);
-                                return;
-                            }
-                    }
-                println!("Size = {}", self.metadata.as_ref().unwrap().len());
+        fn send_file(&mut self, stream:&mut TcpStream)
+            {
+                let size = self.metadata.as_ref().unwrap().len();
+                let mut iteration = (size/BUFFER_SIZE as u64)+1;
+                self.handshake_validation(stream, size);
+                println!("Size = {}", size);
                 println!("Iteration = {}", iteration);
                 while iteration != 0
                     {
                         iteration -= 1;
                         let mut buffer = [0u8;BUFFER_SIZE];
-                        let mut file_reader = BufReader::new(self.file.as_ref().unwrap());
                         if iteration != 0
                             {
-                                match self.file.as_ref().unwrap().read_exact(&mut buffer)
-                                    {
-                                        Ok(_) =>
-                                            {
-                                                self.size_current += buffer.len();
-                                                println!("Size now = {}", self.size_current);
-                                                //println!("{} | {} | {:#?}", iteration,buffer.len(), buffer);
-                                                
-                                            }
-                                        Err(err_val) =>
-                                            {
-                                                println!("Error: File to Byte -> {} | Error: {}", self.location, err_val);
-                                                return;
-                                            }
-                                    }
+                                self.read_exact(&mut buffer);
                             }
                         else 
                             {
-                                match self.file.as_ref().unwrap().read_exact(&mut buffer[..(self.metadata.as_ref().unwrap().len()%BUFFER_SIZE as u64) as usize])
-                                    {
-                                        //fix it
-                                        Ok(_) =>
-                                            {
-                                                self.size_current += (self.metadata.as_ref().unwrap().len()%BUFFER_SIZE as u64) as usize;
-                                                println!("Size now = {}", self.size_current);
-                                                //println!("{} | {} | {:#?}", iteration,buffer.len(), buffer);
-                                            }
-                                        Err(err_val) =>
-                                            {
-                                                println!("Error: File to Byte Last -> {} | Error: {}", self.location, err_val);
-                                                return;
-                                            }
-                                    }
+                                self.read_exact(&mut buffer[..(size%BUFFER_SIZE as u64) as usize]);
                             }
-                        match stream_writer.write_all(&mut buffer)
+                        self.send_exact(&mut buffer, stream);
+                        
+                    }
+            }
+        fn handshake_validation(&mut self, stream:&mut TcpStream, size:u64)
+            {
+                self.send_exact(String::from(size.to_string()+"\n").as_bytes(), stream);
+                match self.recv_until(stream, '\n')
+                    {
+                        Some(handshake_callback) =>
                             {
-                                Ok(_) =>
+                                if handshake_callback == size.to_string().as_bytes().to_vec()
                                     {
-                                        println!("Done: Send Bytes -> {} | Iteration = {}", self.location, iteration);
+                                        println!("Done: Handshake -> {}", self.location);
                                     }
-                                Err(err_val) =>
+                                else 
                                     {
-                                        println!("Error: Send Bytes -> {} | Error: {}", self.location, err_val);
-                                        return;
+                                        println!("Error: Handshake -> {}", self.location);
+                                        println!("{:#?} ", handshake_callback);
+                                        panic!()
                                     }
                             }
-                        match stream_writer.flush()
+                        None =>
                             {
-                                Ok(_) =>
-                                    {
-                                        //println!("Done: Flush -> {}", self.location);
-                                    }
-                                Err(err_val) =>
-                                    {
-                                        println!("Error: Flush -> {} | Error: {}", self.location, err_val);
-                                        return;
-                                    }
+                                panic!()
                             }
-                    
-                    
+                    }
+            }
+        fn read_exact(&mut self, buffer:&mut [u8])
+            {
+                match self.file.as_ref().unwrap().read_exact(buffer)
+                    {
+                        Ok(_) =>
+                            {
+                                //println!("Done: Read Bytes -> {}", self.location);
+                            }
+                        Err(err_val) =>
+                            {
+                                println!("Error: Read Bytes -> {} | Error: {}", self.location, err_val);
+                                panic!()
+                            }
+                    }
+            }
+        fn send_exact(&mut self, buffer:&[u8], stream:&mut TcpStream)
+            {
+                let mut stream_writer = BufWriter::new(stream.try_clone().unwrap());
+                match stream_writer.write_all(buffer)
+                    {
+                        Ok(_) =>
+                            {
+                                self.size_current += buffer.len();
+                                //println!("Done: Send Bytes -> {}", self.location);
+                            }
+                        Err(err_val) =>
+                            {
+                                println!("Error: Send Bytes -> {} | Error: {}", self.location, err_val);
+                                panic!();
+                            }
+                    }
+                match stream_writer.flush()
+                    {
+                        Ok(_) =>
+                            {
+                                //println!("Done: Flush -> {}", self.location);
+                            }
+                        Err(err_val) =>
+                            {
+                                println!("Error: Flush -> {} | Error: {}", self.location, err_val);
+                                panic!()
+                            }
+                    }
+            }
+        fn recv_exact(&mut self, buffer:&mut [u8], stream:&mut TcpStream)
+            {
+                let mut stream_reader = BufReader::new(stream.try_clone().unwrap());
+                match stream_reader.read_exact(buffer)
+                    {
+                        Ok(_) =>
+                            {
+                                self.size_current += buffer.len();
+                                //println!("Done: Receive Bytes -> {}", self.location);
+                            }
+                        Err(err_val) =>
+                            {
+                                println!("Error: Receive Bytes -> {} | Error: {}", self.location, err_val);
+                                panic!();
+                            }
+                    }
+            }
+        fn recv_until(&mut self, stream:&mut TcpStream, until:char) -> Option<Vec<u8>>
+            {
+                let mut buffer = Vec::new();
+                let mut stream_reader = BufReader::new(stream.try_clone().unwrap());
+                match stream_reader.read_until(until as u8,&mut buffer)
+                    {
+                        Ok(_) =>
+                            {
+                                //println!("Done: Receive Until -> {}", self.location);
+                                buffer.pop();
+                            }
+                        Err(err_val) =>
+                            {
+                                println!("Error: Receive Until -> {} | Error: {}", self.location, err_val);
+                                return None;
+                            }
+                    }
+                return Some(buffer);
+            }
+        fn forge_file(&mut self)
+            {
+                self.file = Some(File::create(&self.location).expect("Error: Create File"));
+            }
+        fn handshake_recv(&mut self, stream:&mut TcpStream) -> u64
+            {
+                match self.recv_until(stream, '\n')
+                    {
+                        Some(handshake) =>
+                            {
+                                println!("Done: Handshake -> {}", self.location);
+                                let mut handshake_terminated = handshake.clone();
+                                handshake_terminated.push(b'\n');
+                                self.send_exact(handshake_terminated.as_slice(), stream);
+                                String::from_utf8(handshake.clone()).unwrap().parse().unwrap()
+                            }
+                        None =>
+                            {
+                                println!("Error: Handshake -> {}", self.location);
+                                0
+                            }
+                    }
+            }
+        fn save_exact(&mut self, buffer:&[u8])
+            {
+                let mut file_writer = BufWriter::new(self.file.as_ref().unwrap());
+                match file_writer.write_all(buffer)
+                    {
+                        Ok(_) =>
+                            {
+                                //println!("Done: Write -> {} | {} bytes", self.location, self.size_current);
+                            }
+                        Err(err_val) => 
+                            {
+                                println!("Error: Write -> {} | Error: {}", self.location,err_val);
+                                panic!();
+                            }
+                    }
+                match file_writer.flush()
+                    {
+                        Ok(_) =>
+                            {
+                                //println!("Done: Flush -> {}", self.location);
+                            }
+                        Err(err_val) => 
+                            {
+                                println!("Error: Flush -> {} | Error: {}", self.location,err_val);
+                                panic!();
+                            }
                     }
             }
         fn write_file(&mut self, stream:&mut TcpStream)
             {
-                //use match, there is a chance to fail creation. don't pass with just some
-                self.file = Some(File::create(&self.location).expect("Error: Create File"));
-                let mut file_writer = BufWriter::new(self.file.as_ref().unwrap());
-                let mut stream_reader = BufReader::new(stream.try_clone().unwrap());
-                let mut stream_writer = BufWriter::new(stream.try_clone().unwrap());
-                let size:u64;
-                let mut handshake:Vec<u8> = Vec::new();
-                match stream_reader.read_until(b'\n',&mut handshake)
-                    {
-                        Ok(_) =>
-                            {
-                                //read until and take
-                                handshake.pop();
-                                size = String::from_utf8(handshake.clone()).unwrap().parse().unwrap();
-                                println!("Done: Handshake Recv -> {}", self.location);
-                                match stream_writer.write_all(&mut handshake)
-                                    {
-                                        Ok(_) =>
-                                            {
-                                                println!("Done: Handshake Send -> {}", self.location);
-                                            }
-                                        Err(err_val) =>
-                                            {
-                                                println!("Error: Handshake Send -> {} | Error: {}", self.location, err_val);
-                                                return;
-                                            }
-                                    }
-                                match stream_writer.write_all(String::from("\n").as_bytes())
-                                    {
-                                        Ok(_) =>
-                                            {
-                                                println!("Done: Send Terminator -> {}", self.location);
-                                            }
-                                        Err(err_val) =>
-                                            {
-                                                println!("Error: Send Terminator -> {} | Error: {}", self.location, err_val);
-                                                return;
-                                            }
-                                    }
-                                match stream_writer.flush()
-                                    {
-                                        Ok(_) =>
-                                            {
-                                                println!("Done: Flush -> {}", self.location);
-                                            }
-                                        Err(err_val) =>
-                                            {
-                                                println!("Error: Flush -> {} | Error: {}", self.location, err_val);
-                                                return;
-                                            }
-                                    }
-                            }
-                        Err(err_val) =>
-                            {
-                                println!("Error: Handshake Recv -> {} | Error: {}", self.location, err_val);
-                                return;
-                            }
-                    }
+                let size = self.handshake_recv(stream);
                 let mut iteration:u64 = (size/BUFFER_SIZE as u64)+1;
                 println!("Size = {}", size);
                 println!("Iteration = {}", iteration);
@@ -273,53 +258,16 @@ impl FileInfo
                     {
                         iteration -= 1;
                         let mut buffer = [0u8;BUFFER_SIZE];
-                        match stream_reader.read_exact(&mut buffer)
-                            {
-                                Ok(_) =>
-                                    {
-                                        self.size_current += buffer.len();
-                                        println!("{} | {:#?}", iteration, buffer);
-                                        if iteration != 0
-                                            {
-                                                match file_writer.write_all(&mut buffer)
-                                                    {
-                                                        Ok(_) =>
-                                                            {
-                                                                println!("Done: Write -> {} bytes | Iteration = {}", &mut self.size_current, iteration);
-                                                            }
-                                                        Err(err_val) => 
-                                                            {
-                                                                println!("Error: Write -> {} | Error: {}", self.location,err_val);
-                                                                return;
-                                                            }
-                                                    }
-                                            }
-                                        else 
-                                            {
-                                                match file_writer.write_all(&mut buffer[..(size%BUFFER_SIZE as u64)as usize])
-                                                    {
-                                                        Ok(_) =>
-                                                            {
-                                                                println!("Done: Write Last -> {} bytes | Iteration = {}", &mut self.size_current, iteration);
-                                                            }
-                                                        Err(err_val) =>
-                                                            {
-                                                                println!("Error: Write Last -> {} | Error: {}", self.location,err_val);
-                                                                return;
-                                                            }
-                                                    }
-                                            }
-                                    }
-                                Err(err_val) =>
-                                    {
-                                        println!("{} | {:#?}", iteration, buffer);
-                                        println!("Error: Recv Bytes -> {} | Error: {}", self.location, err_val);
-                                        return;
-                                    }
-                            }
-                    }         
-            
-                        
+                        self.recv_exact(&mut buffer, stream);
+                        if iteration != 0
+                                {
+                                    self.save_exact(&buffer);
+                                }
+                            else 
+                                {
+                                    self.save_exact(&buffer[..(size%BUFFER_SIZE as u64) as usize]);
+                                }
+                    }            
             }
     }
 enum Connection
@@ -356,6 +304,7 @@ impl Connection
                                         let mut stay = true;
                                         while stay 
                                             {
+                                                println!("Connected");
                                                 let start_time = Instant::now();
                                                 FileInfo::writing_operations(file_info, &mut stream);
                                                 let finish_time = Instant::now();
@@ -392,8 +341,8 @@ impl Connection
                     {
                         Ok(mut stream) =>
                             {
-                                let start_time = Instant::now();
                                 println!("Connected");
+                                let start_time = Instant::now();
                                 FileInfo::reading_operations(file_info, &mut stream);
                                 let finish_time = Instant::now();
                                 println!("Passed: Total -> {:#?}", finish_time.duration_since(start_time));
