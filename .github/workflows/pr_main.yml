@@ -1,4 +1,4 @@
-name: Rust Dev Branch -> Build & Test 
+name: Rust Main Branch Pull Request -> Build & Test 
 
 on:
   pull_request:
