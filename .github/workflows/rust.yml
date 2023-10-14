@@ -80,9 +80,9 @@ jobs:
         
         - name: Rename Binaries
           run: |
-                  mv Downloads/*linux*/rust_tcp_file_transfer Downloads/*linux*/rust_tcp_file_transfer_linux_x64_86
-                  mv Downloads/*windows*/rust_tcp_file_transfer.exe Downloads/*windows*/rust_tcp_file_transfer_windows_x64_86.exe
-                  mv Downloads/*macos*/rust_tcp_file_transfer Downloads/*macos*/rust_tcp_file_transfer_macos_x64_86
+                  mv Downloads/rust_tcp_file_transfer_linux_x64_86/rust_tcp_file_transfer Downloads/rust_tcp_file_transfer_linux_x64_86/rust_tcp_file_transfer_linux_x64_86
+                  mv Downloads/rust_tcp_file_transfer_windows_x64_86/rust_tcp_file_transfer.exe Downloads/rust_tcp_file_transfer_windows_x64_86/rust_tcp_file_transfer_windows_x64_86.exe
+                  mv Downloads/rust_tcp_file_transfer_macos_x64_86/rust_tcp_file_transfer Downloads/rust_tcp_file_transfer_macos_x64_86/rust_tcp_file_transfer_macos_x64_86
 
         - name: Git Commit SHA
           id: vars
