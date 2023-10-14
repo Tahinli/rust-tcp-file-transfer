@@ -96,7 +96,7 @@ jobs:
             tag_name: ${{ steps.vars.outputs.short_sha }}
             generate_release_notes: true
             files: |
-                      Downloads/*linux*/*trasfer*
+                      Downloads/*linux*/*transfer*
                       Downloads/*windows*/*transfer*
                       Downloads/*macos*/*transfer*
           
