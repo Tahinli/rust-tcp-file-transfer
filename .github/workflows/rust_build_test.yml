@@ -42,7 +42,7 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
          name: rust_tcp_file_transfer_windows_x64_86
-         path: target/release/rust_tcp_file_transfer.exe
+         path: target/release/*.exe
 
   build_macos:
 
