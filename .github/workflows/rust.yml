@@ -61,7 +61,7 @@ jobs:
          name: rust_tcp_file_transfer_macos_x64_86
          path: target/release/*transfer
 
-  download_then_release:
+  release:
     needs: [build_linux, build_windows, build_macos]
     runs-on: ubuntu-latest
     permissions: 
@@ -77,7 +77,12 @@ jobs:
           name: Download
           with:
             path: Downloads/
-            
-        - name: Display Downloads
-          run: ls -R
+
+        - name: Unzip
+          run: |
+                  unzip *linux* -d linux/
+                  unzip *windows* -d windows/
+                  unzip *macos* -d macos/
+                  rm -f *.zip
+                  ls -R
           working-directory: /home/runner/work/rust-tcp-file-transfer/rust-tcp-file-transfer/Downloads/
