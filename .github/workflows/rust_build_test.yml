@@ -41,7 +41,7 @@ jobs:
     - name: Upload Windows Binary
       uses: actions/upload-artifact@v3
       with:
-         name: rust_tcp_file_transfer_windows_x64_86
+         name: rust_tcp_file_transfer_windows_x64_86.exe
          path: target/release/*.exe
 
   build_macos:
