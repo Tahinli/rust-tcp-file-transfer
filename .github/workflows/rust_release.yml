@@ -10,7 +10,7 @@ jobs:
       steps:
          
          - uses: actions/download-artifact@v3
-         - name: Download
+           name: Download
            with:
               path: ~/Downloads/
          
