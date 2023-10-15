@@ -209,6 +209,7 @@ impl FileInfo
                             {
                                 // try then commit
                                 println!("Done: Handshake -> {}", self.location);
+                                println!("{:#?} ", handshake);
                                 let size = String::from_utf8(handshake.clone()).unwrap().parse().unwrap();
                                 handshake.push(b'\n');
                                 self.send_exact(&handshake.as_slice(), stream);
