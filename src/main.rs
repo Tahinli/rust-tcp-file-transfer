@@ -85,7 +85,6 @@ impl FileInfo
                         if iteration != 0
                             {
                                 self.read_exact(&mut buffer, debug_mode);
-                                println!("%{}", (iteration as f64/total_iteration as f64)*100 as f64);
                             }
                         else 
                             {
@@ -96,6 +95,7 @@ impl FileInfo
                                 println!("Read Data = {:#?}", buffer);
                             }
                         self.send_exact(&mut buffer, stream, debug_mode);
+                        println!("%{}", 100 as f64 -((iteration as f64/total_iteration as f64)*100 as f64));
                     }
             }
         fn handshake_validation(&mut self, stream:&mut TcpStream, size:u64, debug_mode:&bool)
@@ -302,12 +302,12 @@ impl FileInfo
                         if iteration != 0
                                 {
                                     self.save_exact(&buffer, debug_mode);
-                                    println!("%{}", (iteration as f64/total_iteration as f64)*100 as f64);
                                 }
                             else 
                                 {
                                     self.save_exact(&buffer[..(size%BUFFER_SIZE) as usize], debug_mode);
                                 }
+                        println!("%{}", 100 as f64 -((iteration as f64/total_iteration as f64)*100 as f64));
                     }            
             }
     }
