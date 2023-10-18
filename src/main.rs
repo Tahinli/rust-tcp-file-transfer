@@ -183,8 +183,7 @@ impl FileInfo
             }
         fn recv_exact(&mut self, buffer:&mut [u8], stream:&mut TcpStream, debug_mode:&bool)
             {
-                let mut stream_reader = BufReader::new(stream.try_clone().unwrap());
-                match stream_reader.read_exact(buffer)
+                match stream.read_exact(buffer)
                     {
                         Ok(_) =>
                             {
