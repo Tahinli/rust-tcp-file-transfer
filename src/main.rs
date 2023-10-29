@@ -1,15 +1,28 @@
 use std::fs::{File, Metadata, self};
+use std::path::{Path, PathBuf};
 use std::time::Instant;
-use std::net::{TcpListener, TcpStream};
-use std::io::{Read, Write, self, BufWriter, BufReader, BufRead};
+use std::net::{TcpListener, TcpStream, IpAddr};
+use std::io::{Read, Write, BufWriter, BufReader, BufRead};
 use std::env::{self};
 
 
 const BUFFER_SIZE:u64 = 100000;
+
+#[derive(Debug)]
+struct UserEnvironment
+    {
+        ip:IpAddr,
+        port:u16,
+        server:bool,
+        send:bool,
+        location:Option<String>,
+		debug:DebugMode,
+    }
+#[derive(Debug)]
 struct FileInfo
     {
         file:Option<File>,
-        location:String,
+        location:Option<String>,
         size_current:usize,
         metadata:Option<Metadata>,
     }
@@ -41,22 +54,21 @@ impl FileInfo
                             }
                         None =>
                             {
-                                println!("Error: Read Metadata -> {}", self.location);
+                                println!("Error: Read Metadata -> {}", self.location.as_ref().unwrap());
                             }
                     }
             }
         fn writing_operations(&mut self, stream:&mut TcpStream, debug_mode:&bool)
             {
-                self.forge_file();
                 self.write_file(stream, debug_mode);
             }
         fn read_metadata(&mut self)
             {
-                self.metadata = Some(fs::metadata(&self.location).expect("Error: Read Metadata"));
+                self.metadata = Some(fs::metadata(&self.location.as_ref().unwrap()).expect("Error: Read Metadata"));
             }
         fn open_file(&mut self)
             {
-                match File::open(&self.location)
+                match File::open(&self.location.as_ref().unwrap())
                     {
                         Ok(file) =>
                             {
@@ -64,7 +76,7 @@ impl FileInfo
                             }
                         Err(err_val) =>
                             {
-                                println!("Error: Open File -> {} | Error: {}", self.location, err_val);
+                                println!("Error: Open File -> {} | Error: {}", self.location.as_ref().unwrap(), err_val);
                                 return;
                             }
                     }
@@ -75,7 +87,10 @@ impl FileInfo
                 let size = self.metadata.as_ref().unwrap().len();
                 let mut iteration = (size/BUFFER_SIZE)+1;
                 let total_iteration = iteration;
-                self.handshake_validation(stream, size, debug_mode);
+				let path_buf = PathBuf::from(Path::new(self.location.as_ref().unwrap()));
+                self.callback_validation(stream, &(size.to_string()), debug_mode);
+				self.callback_validation(stream, &path_buf.file_name().unwrap().to_str().unwrap().to_string(), debug_mode);
+				println!("File = {}", self.location.as_ref().unwrap());
                 println!("Size = {}", size);
                 println!("Iteration = {}", iteration);
                 while iteration != 0
@@ -98,25 +113,25 @@ impl FileInfo
                         println!("%{}", 100 as f64 -((iteration as f64/total_iteration as f64)*100 as f64));
                     }
             }
-        fn handshake_validation(&mut self, stream:&mut TcpStream, size:u64, debug_mode:&bool)
+        fn callback_validation(&mut self, stream:&mut TcpStream, data:&String, debug_mode:&bool)
             {
-                self.send_exact(String::from(size.to_string()+"\n").as_bytes(), stream, debug_mode);
+                self.send_exact(String::from(data.clone() + "\n").as_bytes(), stream, debug_mode);
                 match self.recv_until(stream, '\n', debug_mode)
                     {
-                        Some(handshake_callback) =>
+                        Some(callback_callback) =>
                             {
-                                if handshake_callback == size.to_string().as_bytes().to_vec()
+                                if callback_callback == data.to_string().as_bytes().to_vec()
                                     {
-                                        println!("Done: Handshake -> {}", self.location);
+                                        println!("Done: Callback -> {}", self.location.as_ref().unwrap());
                                         if *debug_mode
                                             {
-                                                println!("{:#?} ", handshake_callback);
+                                                println!("{:#?} ", callback_callback);
                                             }
                                     }
                                 else 
                                     {
-                                        println!("Error: Handshake -> {}", self.location);
-                                        println!("{:#?} ", handshake_callback);
+                                        println!("Error: Callback -> {}", self.location.as_ref().unwrap());
+                                        println!("{:#?} ", callback_callback);
                                         panic!()
                                     }
                             }
@@ -134,13 +149,13 @@ impl FileInfo
                             {
                                 if *debug_mode
                                     {
-                                        println!("Done: Read Bytes -> {}", self.location);
+                                        println!("Done: Read Bytes -> {}", self.location.as_ref().unwrap());
                                         println!("{:#?}", buffer);
                                     }
                             }
                         Err(err_val) =>
                             {
-                                println!("Error: Read Bytes -> {} | Error: {}", self.location, err_val);
+                                println!("Error: Read Bytes -> {} | Error: {}", self.location.as_ref().unwrap(), err_val);
                                 panic!()
                             }
                     }
@@ -155,13 +170,13 @@ impl FileInfo
                                 self.size_current += buffer.len();
                                 if *debug_mode
                                     {
-                                        println!("Done: Send Bytes -> {}", self.location);
+                                        println!("Done: Send Bytes -> {:#?}", self.location);
                                         println!("{:#?}", buffer);
                                     }
                             }
                         Err(err_val) =>
                             {
-                                println!("Error: Send Bytes -> {} | Error: {}", self.location, err_val);
+                                println!("Error: Send Bytes -> {:#?} | Error: {}", self.location, err_val);
                                 panic!();
                             }
                     }
@@ -171,12 +186,12 @@ impl FileInfo
                             {
                                 if *debug_mode
                                     {
-                                        println!("Done: Flush -> {}", self.location);
+                                        println!("Done: Flush -> {:#?}", self.location);
                                     }
                             }
                         Err(err_val) =>
                             {
-                                println!("Error: Flush -> {} | Error: {}", self.location, err_val);
+                                println!("Error: Flush -> {:#?} | Error: {}", self.location, err_val);
                                 panic!()
                             }
                     }
@@ -190,13 +205,13 @@ impl FileInfo
                                 self.size_current += buffer.len();
                                 if *debug_mode
                                     {
-                                        println!("Done: Receive Bytes -> {}", self.location);
+                                        println!("Done: Receive Bytes -> {:#?}", self.location);
                                         println!("{:#?}", buffer);
                                     }
                             }
                         Err(err_val) =>
                             {
-                                println!("Error: Receive Bytes -> {} | Error: {}", self.location, err_val);
+                                println!("Error: Receive Bytes -> {:#?} | Error: {}", self.location, err_val);
                                 panic!();
                             }
                     }
@@ -211,14 +226,14 @@ impl FileInfo
                             {
                                 if *debug_mode
                                     {
-                                        println!("Done: Receive Until -> {}", self.location);
+                                        println!("Done: Receive Until -> {:#?}", self.location);
                                         println!("{:#?}", buffer);
                                     }
                                 buffer.pop();
                             }
                         Err(err_val) =>
                             {
-                                println!("Error: Receive Until -> {} | Error: {}", self.location, err_val);
+                                println!("Error: Receive Until -> {:#?} | Error: {}", self.location, err_val);
                                 return None;
                             }
                     }
@@ -226,28 +241,39 @@ impl FileInfo
             }
         fn forge_file(&mut self)
             {
-                self.file = Some(File::create(&self.location).expect("Error: Create File"));
-            }
-        fn handshake_recv(&mut self, stream:&mut TcpStream, debug_mode:&bool) -> u64
-            {
-                match self.recv_until(stream, '\n', debug_mode)
+                match &self.location
                     {
-                        Some(mut handshake) =>
+                        Some(location) =>
                             {
-                                println!("Done: Handshake -> {}", self.location);
-                                if *debug_mode
-                                    {
-                                        println!("{:#?} ", handshake);
-                                    }
-                                let size = String::from_utf8(handshake.clone()).unwrap().parse().unwrap();
-                                handshake.push(b'\n');
-                                self.send_exact(&handshake.as_slice(), stream, debug_mode);
-                                size
+                                self.file = Some(File::create(&location).expect("Error: Create File"));
                             }
                         None =>
                             {
-                                println!("Error: Handshake -> {}", self.location);
-                                0
+                                println!("Error: Forge File -> {:#?}", self.location);
+                                panic!();
+                            }
+                    }
+            }
+        fn callback_recv(&mut self, stream:&mut TcpStream, debug_mode:&bool) -> String
+            {
+                match self.recv_until(stream, '\n', debug_mode)
+                    {
+                        Some(mut callback) =>
+                            {
+                                println!("Done: Callback -> {:#?}", self.location);
+                                if *debug_mode
+                                    {
+                                        println!("{:#?} ", callback);
+                                    }
+                                let data = String::from_utf8(callback.clone()).unwrap();
+                                callback.push(b'\n');
+                                self.send_exact(&callback.as_slice(), stream, debug_mode);
+                                data
+                            }
+                        None =>
+                            {
+                                println!("Error: Callback -> {:#?}", self.location);
+                                panic!();
                             }
                     }
             }
@@ -260,13 +286,13 @@ impl FileInfo
                             {
                                 if *debug_mode
                                     {
-                                        println!("Done: Write -> {} | {} bytes", self.location, self.size_current);
+                                        println!("Done: Write -> {} | {} bytes", self.location.as_ref().unwrap(), self.size_current);
                                         println!("{:#?}", buffer);
                                     }
                             }
                         Err(err_val) => 
                             {
-                                println!("Error: Write -> {} | Error: {}", self.location,err_val);
+                                println!("Error: Write -> {} | Error: {}", self.location.as_ref().unwrap(),err_val);
                                 panic!();
                             }
                     }
@@ -276,21 +302,24 @@ impl FileInfo
                             {
                                 if *debug_mode
                                     {
-                                        println!("Done: Flush -> {}", self.location);
+                                        println!("Done: Flush -> {}", self.location.as_ref().unwrap());
                                     }
                             }
                         Err(err_val) => 
                             {
-                                println!("Error: Flush -> {} | Error: {}", self.location,err_val);
+                                println!("Error: Flush -> {} | Error: {}", self.location.as_ref().unwrap(),err_val);
                                 panic!();
                             }
                     }
             }
         fn write_file(&mut self, stream:&mut TcpStream, debug_mode:&bool)
             {
-                let size = self.handshake_recv(stream, debug_mode);
+                let size:u64 = self.callback_recv(stream, debug_mode).parse().unwrap();
+				self.location = Some(self.callback_recv(stream, debug_mode));
+				self.forge_file();
                 let mut iteration:u64 = (size/BUFFER_SIZE)+1;
                 let total_iteration = iteration;
+				println!("File = {}", self.location.as_ref().unwrap());
                 println!("Size = {}", size);
                 println!("Iteration = {}", iteration);
                 while iteration != 0
@@ -310,13 +339,14 @@ impl FileInfo
                     }            
             }
     }
+#[derive(Debug)]
 enum DebugMode
     {
         On,
         Off
     }
 impl DebugMode {
-    fn debug_mode(self) -> bool
+    fn debug_mode(&self) -> bool
         {
             match self
                 {
@@ -343,9 +373,14 @@ enum Connection
 
 impl Connection 
     {
-        fn server(self, file_info:&mut FileInfo, debug_mode:bool)
+        fn server(self, file_info:&mut FileInfo, debug_mode:bool, user_environment:&UserEnvironment)
             {
                 print!("Server -> ");
+				if debug_mode
+					{
+						println!("{:#?}", user_environment);
+						println!("{:#?}", file_info);
+					}
                 let ip:String;
                 let port:String;
                 let address:String;
@@ -368,7 +403,7 @@ impl Connection
                                 Ok(mut stream) =>
                                     {
                                         println!("Connected");
-                                        send_or_receive(file_info, &mut stream, &debug_mode);
+                                        send_or_receive(file_info, &mut stream, &debug_mode, user_environment);
                                     }
                                 Err(e) =>
                                     {
@@ -378,9 +413,14 @@ impl Connection
                             }
                     }
             }
-        fn client(self, file_info:&mut FileInfo, debug_mode:bool)
+        fn client(self, file_info:&mut FileInfo, debug_mode:bool, user_environment:&UserEnvironment)
             {
                 print!("Client -> ");
+				if debug_mode
+					{
+						println!("{:#?}", user_environment);
+						println!("{:#?}", file_info);
+					}
                 let ip:String;
                 let port:String;
                 let address:String;
@@ -400,7 +440,7 @@ impl Connection
                         Ok(mut stream) =>
                             {
                                 println!("Connected");
-                                send_or_receive(file_info, &mut stream, &debug_mode);
+                                send_or_receive(file_info, &mut stream, &debug_mode, user_environment);
                             }
                         Err(e) =>
                             {
@@ -410,94 +450,118 @@ impl Connection
                 
             }
     }
-fn send_or_receive(file_info:&mut FileInfo, stream:&mut TcpStream, debug_mode:&bool)
+fn send_or_receive(file_info:&mut FileInfo, stream:&mut TcpStream, debug_mode:&bool, user_environment:&UserEnvironment)
     {
-        match &take_string("Input: Send 's', Receive 'r'".to_string())[..1]
+        match user_environment.send
         {
-            "s" =>
+            true =>
                 {
-                    println!("Connected");
                     let start_time = Instant::now();
                     FileInfo::reading_operations(file_info, stream, &debug_mode);
                     let finish_time = Instant::now();
                     println!("Passed: Total -> {:#?}", finish_time.duration_since(start_time));
                 }
-            "r" =>
+            false =>
                 {
                     let start_time = Instant::now();
                     FileInfo::writing_operations(file_info, stream, &debug_mode);
                     let finish_time = Instant::now();
                     println!("Passed: Total -> {:#?}", finish_time.duration_since(start_time));
                 }
-            input =>
-                {
-                    println!("Error: Give Valid Input, You Gave : {}", input);
-                    panic!()                                                    }
         }
     }
-fn take_string(output:String) -> String
+fn take_args(user_environment:&mut UserEnvironment)
     {
-        let mut input = String::new();
-        println!("{}", output);
-        io::stdin().read_line(&mut input).expect("Error: Failed to Read from Console");
-        input
-    }
-fn take_arg() -> String
-    {
-        env::args().last().as_deref().unwrap_or("default").to_string()
-    }
-fn debug_mod() -> DebugMode
-    {
-        match &take_string("Input: Debug -> On '1', Debug -> Off '0'".to_string())[0..1]
-            {
-                "1" => 
-                    {
-                        DebugMode::On
-                    }
-                "0" =>
-                    {
-                        DebugMode::Off
-                    }
-                input =>
-                    {
-                        println!("Error: Give Valid Input, You Gave : {}", input);
-                        panic!()
-                    }
-            }
+        let env_args:Vec<String> = env::args().collect();
+		if env_args.len() > 15
+			{
+				println!("Error: Too Many Arguments, You Gave {} Arguments", env_args.len());
+				panic!();
+			}
+		let mut i = 1;
+		while i < env_args.len()
+			{
+				match env_args[i].as_str()
+					{
+						"--ip" =>
+							{
+								user_environment.ip = env_args[i+1].parse().unwrap();
+								i += 1;
+							}
+						"--port" =>
+							{
+								user_environment.port = env_args[i+1].parse().unwrap();
+								i += 1;
+							}
+						"--location" =>
+							{
+								user_environment.location = Some(env_args[i+1].parse().unwrap());
+								i += 1;
+							}
+						"--server" =>
+							{
+								user_environment.server = true;
+							}
+						"--client" =>
+							{
+								user_environment.server = false;
+							}
+						"--send" =>
+							{
+								user_environment.send = true;
+							}
+						"--receive" =>
+							{
+								user_environment.send = false;
+							}
+						"--debug" =>
+							{
+								user_environment.debug = DebugMode::On;
+							}
+						err =>
+							{
+								println!("Error: Invalid Argument, You Gave {}", err);
+							}
+					}
+				i += 1;
+			}
     }
 fn main() 
     {
         //DONT FORGET
         //First we should check folder structure and validation then make connection.
+        //Until's can be deprecated, 100k byte should be enough for eveything.(Security)
         println!("Hello, world!");
-
-        let mut data = FileInfo
+        let mut user_environment = UserEnvironment
+            {
+                ip:"127.0.0.1".parse().unwrap(),
+                port:2121,
+                server:false,
+                send:false,
+                location:None,
+				debug:DebugMode::Off,
+            };
+        take_args(&mut user_environment);
+        let mut file_info = FileInfo
             {
                 file:None,
-                location:take_arg(),
+                location:user_environment.location.clone(),
                 size_current:0 as usize,
                 metadata:None,
             };
-        match &take_string("Input: Server 's', Client 'c'".to_string())[0..1]
+        match user_environment.server
             {
-                "s" => 
+                true => 
                     {
                         Connection::server
-                        (Connection::Server(take_string("Input: Server Stream IP Address".to_string()),
-                         take_string("Input: Server Stream Port Address".to_string())),
-                          &mut data, DebugMode::debug_mode(debug_mod()));
+                        (Connection::Server(user_environment.ip.to_string(), user_environment.port.to_string()),
+                          &mut file_info, DebugMode::debug_mode(&user_environment.debug), &user_environment);
                     },
-                "c" => 
+                false => 
                     {
                         Connection::client
-                        (Connection::Client(take_string("Input: Server IP Address to Connect".to_string()),
-                         take_string("Input: Server Port Address to Connect".to_string())),
-                          &mut data, DebugMode::debug_mode(debug_mod()));
-                    }
-                input => 
-                    {
-                        println!("Error: Give Valid Input, You Gave : {}", input);
-                        return;
+                        (Connection::Client(user_environment.ip.to_string(), user_environment.port.to_string()),
+                          &mut file_info, DebugMode::debug_mode(&user_environment.debug), &user_environment);
                     }
             }
     }
