@@ -68,7 +68,7 @@ impl FileInfo
             }
         fn open_file(&mut self)
             {
-                match File::open(&self.location.as_ref().unwrap())
+                match File::options().read(true).write(true).open(self.location.as_ref().unwrap())
                     {
                         Ok(file) =>
                             {
@@ -239,20 +239,26 @@ impl FileInfo
                     }
                 return Some(buffer);
             }
-        fn forge_file(&mut self)
+        fn forge_file(&mut self, location:String)
             {
                 match &self.location
                     {
-                        Some(location) =>
+                        Some(self_location) =>
                             {
-                                self.file = Some(File::create(&location).expect("Error: Create File"));
+                                fs::create_dir_all(self_location).unwrap();
+                                let mut path = PathBuf::from(self_location);
+                                path.push(&location);
+                                self.location = Some(path.to_str().unwrap().to_string());
                             }
                         None =>
                             {
-                                println!("Error: Forge File -> {:#?}", self.location);
-                                panic!();
+                                self.location = Some(location);
                             }
                     }
+                println!("{:#?}", self.location);
+                self.file = Some(File::create(self.location.as_ref().unwrap()).unwrap());
+                println!("{:#?}", self.file);
+                self.open_file();
             }
         fn callback_recv(&mut self, stream:&mut TcpStream, debug_mode:&bool) -> String
             {
@@ -280,6 +286,7 @@ impl FileInfo
         fn save_exact(&mut self, buffer:&[u8], debug_mode:&bool)
             {
                 let mut file_writer = BufWriter::new(self.file.as_ref().unwrap());
+                println!("{:#?}", file_writer);
                 match file_writer.write_all(buffer)
                     {
                         Ok(_) =>
@@ -315,8 +322,8 @@ impl FileInfo
         fn write_file(&mut self, stream:&mut TcpStream, debug_mode:&bool)
             {
                 let size:u64 = self.callback_recv(stream, debug_mode).parse().unwrap();
-				self.location = Some(self.callback_recv(stream, debug_mode));
-				self.forge_file();
+				let location:String = self.callback_recv(stream, debug_mode);
+				self.forge_file(location);
                 let mut iteration:u64 = (size/BUFFER_SIZE)+1;
                 let total_iteration = iteration;
 				println!("File = {}", self.location.as_ref().unwrap());
