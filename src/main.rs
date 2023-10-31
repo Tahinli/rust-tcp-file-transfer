@@ -18,22 +18,57 @@ struct UserEnvironment
         location:Option<String>,
 		debug:bool,
     }
+impl UserEnvironment 
+    {
+        fn user_environment() -> UserEnvironment
+            {
+                UserEnvironment
+                    {
+                        ip:"127.0.0.1".parse().unwrap(),
+                        port:2121,
+                        server:false,
+                        send:false,
+                        location:None,
+                        debug:false,
+                    }
+            }
+    }
 #[derive(Debug)]
 struct FileInfo
     {
         file:Option<File>,
         location:Option<String>,
         sign:Option<String>,
-        size_current:usize,
+        size_total:u64,
+        size_current:u64,
         metadata:Option<Metadata>,
         progress:u8,
     }
 impl FileInfo 
     {
+        fn file_info() -> FileInfo
+            {
+                FileInfo 
+                    {
+                        file: None,
+                        location: None, 
+                        sign: None, 
+                        size_total: 0, 
+                        size_current: 0, 
+                        metadata: None, 
+                        progress: 0 
+                    }
+            }
+        fn pass_user_environment(&mut self, user_environment:&UserEnvironment)
+            {
+                self.location = user_environment.location.clone();
+                self.sign = user_environment.location.clone();
+            }
         fn reading_operations(&mut self, stream:&mut TcpStream, debug_mode:&bool)
             {
                 //Pathbuf Symlink Metadata
-                //Pathbuf is_Symlink 
+                //Pathbuf is_Symlink
+                
                 match &self.location
                     {
                         Some(_) =>
@@ -79,11 +114,12 @@ impl FileInfo
         fn writing_operations(&mut self, stream:&mut TcpStream, debug_mode:&bool)
             {
                 self.write_file(stream, debug_mode);
-                self.clean_sign();
+                self.cleaning();
             }
-        fn clean_sign(&mut self)
+        fn cleaning(&mut self)
             {
                 self.location = self.sign.clone();
+                self.size_current = 0;
             }
         fn read_metadata(&mut self, debug_mode:&bool)
             {
@@ -125,13 +161,13 @@ impl FileInfo
             }
         fn send_file(&mut self, stream:&mut TcpStream, debug_mode:&bool)
             {
-                let size = self.metadata.as_ref().unwrap().len();
-                let mut iteration = (size/BUFFER_SIZE)+1;
+                self.size_total = self.metadata.as_ref().unwrap().len();
+                let mut iteration = (self.size_total/BUFFER_SIZE)+1;
                 let total_iteration = iteration;
 				let path_buf = PathBuf::from(Path::new(self.location.as_ref().unwrap()));
-                self.callback_validation(stream, &(size.to_string()), debug_mode);
+                self.callback_validation(stream, &(self.size_total.to_string()), debug_mode);
 				self.callback_validation(stream, &path_buf.file_name().unwrap().to_str().unwrap().to_string(), debug_mode);
-				self.show_info(size, &iteration, debug_mode);
+				self.show_info(&iteration, debug_mode);
                 while iteration != 0
                     {
                         iteration -= 1;
@@ -142,7 +178,7 @@ impl FileInfo
                             }
                         else 
                             {
-                                self.read_exact(&mut buffer[..(size%BUFFER_SIZE) as usize], debug_mode);
+                                self.read_exact(&mut buffer[..(self.size_total%BUFFER_SIZE) as usize], debug_mode);
                             }
                         if *debug_mode
                             {
@@ -206,7 +242,7 @@ impl FileInfo
                     {
                         Ok(_) =>
                             {
-                                self.size_current += buffer.len();
+                                self.size_current += buffer.len() as u64;
                                 if *debug_mode
                                     {
                                         println!("Done: Send Bytes -> {:#?}", self.location);
@@ -241,7 +277,7 @@ impl FileInfo
                     {
                         Ok(_) =>
                             {
-                                self.size_current += buffer.len();
+                                self.size_current += buffer.len() as u64;
                                 if *debug_mode
                                     {
                                         println!("Done: Receive Bytes -> {:#?}", self.location);
@@ -399,7 +435,7 @@ impl FileInfo
                 self.open_file(debug_mode);
                 let mut iteration:u64 = (size/BUFFER_SIZE)+1;
                 let total_iteration = iteration;
-				self.show_info(size, &iteration, debug_mode);
+				self.show_info(&iteration, debug_mode);
                 while iteration != 0
                     {
                         iteration -= 1;
@@ -416,10 +452,10 @@ impl FileInfo
                         self.show_progress(iteration, total_iteration);
                     }            
             }
-        fn show_info(&mut self, size:u64, iteration:&u64, debug_mode:&bool)
+        fn show_info(&mut self, iteration:&u64, debug_mode:&bool)
             {
                 println!("File = {}", self.location.as_ref().unwrap());
-                println!("Size = {}", size);
+                println!("Size = {}", self.size_total);
                 if *debug_mode
                     {
                         println!("Iteration = {}", iteration);
@@ -546,84 +582,84 @@ fn send_or_receive(file_info:&mut FileInfo, stream:&mut TcpStream, debug_mode:&b
                 }
         }
     }
-fn take_args(user_environment:&mut UserEnvironment) -> bool
+fn take_args(mut user_environment:UserEnvironment) -> Option<UserEnvironment>
     {
         let env_args:Vec<String> = env::args().collect();
 		if env_args.len() > 16
 			{
 				println!("Error: Too Many Arguments, You Gave {} Arguments", env_args.len());
-				return false;
+				return None;
 			}
 		let mut i = 1;
 		while i < env_args.len()
 			{
 				match env_args[i].as_str()
 					{
-						"--ip" =>
+						"--ip" | "-i" =>
 							{
 								user_environment.ip = env_args[i+1].parse().unwrap();
 								i += 1;
 							}
-						"--port" =>
+						"--port" | "-p" =>
 							{
 								user_environment.port = env_args[i+1].parse().unwrap();
 								i += 1;
 							}
-						"--location" =>
+						"--location" | "-l" =>
 							{
 								user_environment.location = Some(env_args[i+1].parse().unwrap());
 								i += 1;
 							}
-						"--server" =>
+						"--server"| "-sv" =>
 							{
 								user_environment.server = true;
 							}
-						"--client" =>
+						"--client" | "-cl" =>
 							{
 								user_environment.server = false;
 							}
-						"--send" =>
+						"--send" | "-s" =>
 							{
 								user_environment.send = true;
 							}
-						"--receive" =>
+						"--receive" | "-r" =>
 							{
 								user_environment.send = false;
 							}
-						"--debug" =>
+						"--debug" | "-d" =>
 							{
 								user_environment.debug = false;
 							}
-                        "--help" =>
+                        "--help" | "-h" =>
                             {
                                 show_help();
-                                return false;
+                                return None;
 
                             }
 						err =>
 							{
 								println!("Error: Invalid Argument, You Gave {}", err);
-                                return false;
+                                return None;
 							}
 					}
 				i += 1;
 			}
-        true
+        Some(user_environment)
     }
 fn show_help()
     {
         println!("\n\n\n");
-        println!("  Arguments   |  Details                   |  Defaults");
-        println!("--------------------------------------------------------------");
-        println!("  --ip        |  Specifies IP Address       |  127.0.0.1");
-        println!("  --port      |  Specifies Port Address     |  2121");
-        println!("  --location  |  Specifies Location Address |  Same as Program");
-        println!("  --server    |  Starts as a Server         |  False");
-        println!("  --client    |  Starts as a Client         |  True");
-        println!("  --send      |  Starts as a Sender         |  False");
-        println!("  --receive   |  Starts as a Receiver       |  True");
-        println!("  --debug     |  Starts in Debug Mode       |  False");
-        println!("  --help      |  Shows Help                 |  False");
+        println!("   Arguments          |  Details                    |  Defaults");
+        println!("----------------------------------------------------------------------");
+        println!("   -i  -> --ip        |  Specifies IP Address       |  127.0.0.1");
+        println!("   -p  -> --port      |  Specifies Port Address     |  2121");
+        println!("   -l  -> --location  |  Specifies Location Address |  Same as Program");
+        println!("   -sv -> --server    |  Starts as a Server         |  False");
+        println!("   -cl -> --client    |  Starts as a Client         |  True");
+        println!("   -s  -> --send      |  Starts as a Sender         |  False");
+        println!("   -r  -> --receive   |  Starts as a Receiver       |  True");
+        println!("   -d  -> --debug     |  Starts in Debug Mode       |  False");
+        println!("   -h  -> --help      |  Shows Help                 |  False");
         println!("\n\n\n");
     }
 fn main() 
@@ -632,28 +668,20 @@ fn main()
         //First we should check folder structure and validation then make connection.
         //Until's can be deprecated, 100k byte should be enough for eveything.(Security)
         println!("Hello, world!");
-        let mut user_environment = UserEnvironment
+        let mut file_info:FileInfo = FileInfo::file_info();
+        let user_environment:UserEnvironment;
+        match take_args(UserEnvironment::user_environment()) 
             {
-                ip:"127.0.0.1".parse().unwrap(),
-                port:2121,
-                server:false,
-                send:false,
-                location:None,
-				debug:false,
-            };
-        if !take_args(&mut user_environment)
-            {
-                return;
+                Some(usr_env) =>
+                    {
+                        user_environment = usr_env;
+                    }
+                None =>
+                    {
+                        return;
+                    }
             }
-        let mut file_info = FileInfo
-            {
-                file:None,
-                location:user_environment.location.clone(),
-                sign:user_environment.location.clone(),
-                size_current:0 as usize,
-                metadata:None,
-                progress:0,
-            };
+        file_info.pass_user_environment(&user_environment);
         match user_environment.server
             {
                 true => 
