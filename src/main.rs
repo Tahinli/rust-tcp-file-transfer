@@ -101,6 +101,7 @@ impl FileInfo
                                                 else 
                                                     {
                                                         println!("Error: Undefined Type -> {}", self.location.as_ref().unwrap());
+                                                        return;
                                                     }
                                             }
                                         None =>
