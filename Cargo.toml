@@ -8,6 +8,7 @@ strip = "symbols"
 opt-level = 3
 overflow-checks = true
 lto = true
+codegen-units = 1
 
 [lints.rust]
 unsafe_code = "forbid"
