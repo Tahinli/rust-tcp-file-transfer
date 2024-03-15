@@ -24,6 +24,7 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
          name: $(BINARY_NAME)_linux_x64_86
+         run: echo "$(BINARY_NAME)_linux_x64_86"
          path: target/release/*transfer
 
   build_windows:
