@@ -20,7 +20,7 @@ jobs:
       run: cargo test --verbose
 
     - name: Upload Linux Binary
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
          name: rust-tcp-file-transfer-linux-x64_86
          path: target/release/*transfer
@@ -37,7 +37,7 @@ jobs:
       run: cargo test --verbose
 
     - name: Upload Windows Binary
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
          name: rust-tcp-file-transfer-windows-x64_86
          path: target/release/*transfer.exe
@@ -54,7 +54,7 @@ jobs:
       run: cargo test --verbose
 
     - name: Upload MacOS Binary
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
          name: rust-tcp-file-transfer-macos-x64_86
          path: target/release/*transfer
