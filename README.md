@@ -5,14 +5,15 @@ TCP File Transfer Server and Client in Rust
 **Usage**
 > ./rust-tcp-file-transfer -h
 >
-![image](https://github.com/Tahinli/rust-tcp-file-transfer/assets/96421894/7370c9f7-e491-42de-bf81-8f16b8daa248)
+<img src=assets/help_menu.png>
+
 
 **Examples**
 > ./rust-tcp-file-transfer -sv -s -l ~/Desktop/cat.png
 >
 > ./rust-tcp-file-transfer -cl -r -l ~/Documents/
 
-<img width="960" alt="image" src="https://github.com/user-attachments/assets/d0095f59-2489-4623-87f6-168e4fa52412">
+<img src=assets/example.png>
 
 **TO-DO List**
 
