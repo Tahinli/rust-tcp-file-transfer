@@ -19,7 +19,7 @@ jobs:
         - uses: actions/checkout@v3
         - name: Build
           run: 
-             cargo build --release
+             cargo build --release |
              chmod +x target/release/rust-tcp-file-transfer
         - name: Run tests
           run: cargo test --verbose
