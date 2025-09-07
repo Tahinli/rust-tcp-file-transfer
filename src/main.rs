@@ -23,56 +23,97 @@ struct FileInfo
     {
         file:Option<File>,
         location:Option<String>,
+        sign:Option<String>,
         size_current:usize,
         metadata:Option<Metadata>,
+        progress:u8,
     }
 impl FileInfo 
     {
         fn reading_operations(&mut self, stream:&mut TcpStream, debug_mode:&bool)
             {
-                self.read_metadata();
-                match self.metadata
+                //Pathbuf Symlink Metadata
+                //Pathbuf is_Symlink 
+                match &self.location
                     {
-                        Some(ref mut metadata) =>
+                        Some(_) =>
                             {
-                                if Metadata::is_file(metadata)
+                                self.read_metadata(debug_mode);
+                                match self.metadata
                                     {
-                                        self.open_file();
-                                        self.send_file(stream, debug_mode);
-                                    }
-                                else if Metadata::is_symlink(metadata)
-                                    {
-                                        self.open_file();
-                                        self.send_file(stream, debug_mode);
-                                    }
-                                else 
-                                    {
-                                        //path recognition and creation on the other side
-                                        //std:path
-                                        panic!("\n\tError: Folder Transfers've not Supported yet\n")
+                                        Some(ref mut metadata) =>
+                                            {
+                                                if Metadata::is_symlink(metadata)
+                                                    {
+                                                        //Recursivity Problem
+                                                        println!("\n\tError: Symlink Transfers've not Supported yet\n");
+                                                        return;
+                                                    }
+                                                else if Metadata::is_file(metadata)
+                                                    {
+                                                        self.open_file(debug_mode);
+                                                        self.send_file(stream, debug_mode);
+                                                    }
+                                                
+                                                else 
+                                                    {
+                                                        //path recognition and creation on the other side
+                                                        //std:path
+                                                        println!("\n\tError: Folder Transfers've not Supported yet\n");
+                                                        return;
+                                                    }
+                                            }
+                                        None =>
+                                            {
+                                                println!("Error: Read Metadata -> {:#?}", &self.location);
+                                            }
                                     }
                             }
                         None =>
                             {
-                                println!("Error: Read Metadata -> {}", self.location.as_ref().unwrap());
+                                println!("Error: Reading Operations -> {:#?}", &self.location);
+                                panic!();
                             }
                     }
             }
         fn writing_operations(&mut self, stream:&mut TcpStream, debug_mode:&bool)
             {
                 self.write_file(stream, debug_mode);
+                self.clean_sign();
             }
-        fn read_metadata(&mut self)
+        fn clean_sign(&mut self)
             {
-                self.metadata = Some(fs::metadata(&self.location.as_ref().unwrap()).expect("Error: Read Metadata"));
+                self.location = self.sign.clone();
             }
-        fn open_file(&mut self)
+        fn read_metadata(&mut self, debug_mode:&bool)
+            {
+                match fs::metadata(&self.location.as_ref().unwrap())
+                    {
+                        Ok(metadata) =>
+                            {
+                                self.metadata = Some(metadata);
+                                if *debug_mode
+                                    {
+                                        println!("Done: Read Metadata -> {:#?}", self.metadata);
+                                    }
+                            }
+                        Err(err_val) =>
+                            {
+                                println!("Error: Read Metadata -> {} | Error: {}", &self.location.as_ref().unwrap(), err_val);
+                            }
+                    }
+            }
+        fn open_file(&mut self,debug_mode:&bool)
             {
                 match File::options().read(true).write(true).open(self.location.as_ref().unwrap())
                     {
                         Ok(file) =>
                             {
                                 self.file = Some(file);
+                                if *debug_mode
+                                    {
+                                        println!("Done : Open File -> {:#?}", self.file);
+                                    }
                             }
                         Err(err_val) =>
                             {
@@ -90,9 +131,7 @@ impl FileInfo
 				let path_buf = PathBuf::from(Path::new(self.location.as_ref().unwrap()));
                 self.callback_validation(stream, &(size.to_string()), debug_mode);
 				self.callback_validation(stream, &path_buf.file_name().unwrap().to_str().unwrap().to_string(), debug_mode);
-				println!("File = {}", self.location.as_ref().unwrap());
-                println!("Size = {}", size);
-                println!("Iteration = {}", iteration);
+				self.show_info(size, &iteration, debug_mode);
                 while iteration != 0
                     {
                         iteration -= 1;
@@ -110,7 +149,7 @@ impl FileInfo
                                 println!("Read Data = {:#?}", buffer);
                             }
                         self.send_exact(&mut buffer, stream, debug_mode);
-                        println!("%{}", 100 as f64 -((iteration as f64/total_iteration as f64)*100 as f64));
+                        self.show_progress(iteration, total_iteration);
                     }
             }
         fn callback_validation(&mut self, stream:&mut TcpStream, data:&String, debug_mode:&bool)
@@ -122,9 +161,9 @@ impl FileInfo
                             {
                                 if callback_callback == data.to_string().as_bytes().to_vec()
                                     {
-                                        println!("Done: Callback -> {}", self.location.as_ref().unwrap());
                                         if *debug_mode
                                             {
+                                                println!("Done: Callback -> {}", self.location.as_ref().unwrap());
                                                 println!("{:#?} ", callback_callback);
                                             }
                                     }
@@ -239,26 +278,55 @@ impl FileInfo
                     }
                 return Some(buffer);
             }
-        fn forge_file(&mut self, location:String)
+        fn forge_file(&mut self, location:String, debug_mode:&bool)
             {
-                match &self.location
+                //dont forget
+                //directory recognition required for received location
+                match self.location.as_ref()
                     {
                         Some(self_location) =>
                             {
-                                fs::create_dir_all(self_location).unwrap();
-                                let mut path = PathBuf::from(self_location);
-                                path.push(&location);
-                                self.location = Some(path.to_str().unwrap().to_string());
+                                let mut path = PathBuf::from(&self_location);
+                                path.push(location);
+                                self.forge_folder(self_location.clone(), debug_mode);
+                                self.location = Some(path.to_str().unwrap().to_string());            
                             }
                         None =>
                             {
                                 self.location = Some(location);
                             }
                     }
-                println!("{:#?}", self.location);
-                self.file = Some(File::create(self.location.as_ref().unwrap()).unwrap());
-                println!("{:#?}", self.file);
-                self.open_file();
+                match File::create(self.location.as_ref().unwrap())
+                    {
+                        Ok(file) =>
+                            {
+                                if *debug_mode
+                                    {
+                                        println!("Done Forge File -> {:#?}", file);
+                                    }
+                            }
+                        Err(err_val) =>
+                            {
+                                println!("Error: Forge File -> {:#?} | Error: {}", self.location.as_ref(), err_val);
+                            }
+                    }
+            }
+        fn forge_folder(&mut self, location:String, debug_mode:&bool)
+            {
+                match fs::create_dir_all(&location)
+                    {
+                        Ok(_) =>
+                            {
+                                if *debug_mode
+                                    {
+                                        println!("Done: Forge Folder -> {}", &location);
+                                    }
+                            }
+                        Err(err_val) =>
+                            {
+                                println!("Error: Forge Folder -> {} | Error: {}", location, err_val);
+                            }
+                    }
             }
         fn callback_recv(&mut self, stream:&mut TcpStream, debug_mode:&bool) -> String
             {
@@ -266,9 +334,10 @@ impl FileInfo
                     {
                         Some(mut callback) =>
                             {
-                                println!("Done: Callback -> {:#?}", self.location);
+                                
                                 if *debug_mode
                                     {
+                                        println!("Done: Callback -> {:#?}", self.location);
                                         println!("{:#?} ", callback);
                                     }
                                 let data = String::from_utf8(callback.clone()).unwrap();
@@ -286,7 +355,10 @@ impl FileInfo
         fn save_exact(&mut self, buffer:&[u8], debug_mode:&bool)
             {
                 let mut file_writer = BufWriter::new(self.file.as_ref().unwrap());
-                println!("{:#?}", file_writer);
+                if *debug_mode
+                    {
+                        println!("{:#?}", file_writer);
+                    }
                 match file_writer.write_all(buffer)
                     {
                         Ok(_) =>
@@ -323,12 +395,11 @@ impl FileInfo
             {
                 let size:u64 = self.callback_recv(stream, debug_mode).parse().unwrap();
 				let location:String = self.callback_recv(stream, debug_mode);
-				self.forge_file(location);
+				self.forge_file(location, debug_mode);
+                self.open_file(debug_mode);
                 let mut iteration:u64 = (size/BUFFER_SIZE)+1;
                 let total_iteration = iteration;
-				println!("File = {}", self.location.as_ref().unwrap());
-                println!("Size = {}", size);
-                println!("Iteration = {}", iteration);
+				self.show_info(size, &iteration, debug_mode);
                 while iteration != 0
                     {
                         iteration -= 1;
@@ -342,8 +413,30 @@ impl FileInfo
                                 {
                                     self.save_exact(&buffer[..(size%BUFFER_SIZE) as usize], debug_mode);
                                 }
-                        println!("%{}", 100 as f64 -((iteration as f64/total_iteration as f64)*100 as f64));
+                        self.show_progress(iteration, total_iteration);
                     }            
+            }
+        fn show_info(&mut self, size:u64, iteration:&u64, debug_mode:&bool)
+            {
+                println!("File = {}", self.location.as_ref().unwrap());
+                println!("Size = {}", size);
+                if *debug_mode
+                    {
+                        println!("Iteration = {}", iteration);
+                    }
+            }
+        fn show_progress(&mut self, iteration:u64, total_iteration:u64)
+            {
+                if iteration%10 == 0
+                    {
+                        let progress:u8 = 100 as u8 - ((iteration as f64/total_iteration as f64)*100 as f64)as u8;
+                        if progress != self.progress
+                            {
+                                self.progress = progress;
+                                println!("%{}", self.progress);
+                            }
+                    }
+                
             }
     }
 enum Connection
@@ -440,6 +533,7 @@ fn send_or_receive(file_info:&mut FileInfo, stream:&mut TcpStream, debug_mode:&b
                     let start_time = Instant::now();
                     FileInfo::reading_operations(file_info, stream, &debug_mode);
                     let finish_time = Instant::now();
+                    println!("Done: Transfer");
                     println!("Passed: Total -> {:#?}", finish_time.duration_since(start_time));
                 }
             false =>
@@ -447,6 +541,7 @@ fn send_or_receive(file_info:&mut FileInfo, stream:&mut TcpStream, debug_mode:&b
                     let start_time = Instant::now();
                     FileInfo::writing_operations(file_info, stream, &debug_mode);
                     let finish_time = Instant::now();
+                    println!("Done: Transfer");
                     println!("Passed: Total -> {:#?}", finish_time.duration_since(start_time));
                 }
         }
@@ -554,8 +649,10 @@ fn main()
             {
                 file:None,
                 location:user_environment.location.clone(),
+                sign:user_environment.location.clone(),
                 size_current:0 as usize,
                 metadata:None,
+                progress:0,
             };
         match user_environment.server
             {
