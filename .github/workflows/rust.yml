@@ -15,14 +15,15 @@ jobs:
         permissions:
             contents: write
         steps:
-            - name: Run tests
-              run: cargo test --verbose
+            
 
 
             - uses: actions/checkout@v3
             - name: Build Linux x86
               run:  cargo build --release
 
+            - name: Run tests
+              run: cargo test --verbose
 
             - uses: actions-rs/toolchain@v1
               name: Toolchain Windows x86
