@@ -1,6 +1,6 @@
 use std::env::{self};
 use std::fs::{self, File, Metadata};
-use std::io::{BufRead, BufReader, BufWriter, Read, Write};
+use std::io::{BufWriter, Read, Write};
 use std::net::{IpAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -223,23 +223,26 @@ impl FileInfo {
         }
     }
     fn callback_validation(&mut self, stream: &mut TcpStream, data: &String, debug_mode: &bool) {
-        self.send_exact(format!("{}{}", data, "\n").as_bytes(), stream, debug_mode);
-        match self.recv_until(stream, '\n', debug_mode) {
-            Some(callback_callback) => {
-                if callback_callback == data.to_string().as_bytes().to_vec() {
-                    if *debug_mode {
-                        println!("Done: Callback -> {}", self.location.as_ref().unwrap());
-                        println!("{:#?} ", callback_callback);
-                    }
-                } else {
-                    println!("Error: Callback -> {}", self.location.as_ref().unwrap());
-                    println!("{:#?} ", callback_callback);
-                    panic!()
-                }
+        let mut data_exact: [u8; BUFFER_SIZE as usize] = [b'\n'; BUFFER_SIZE as usize];
+        let mut data_exact_check: [u8; BUFFER_SIZE as usize] = [b'\n'; BUFFER_SIZE as usize];
+        let mut data_vec: Vec<u8> = data.as_bytes().to_vec();
+        let mut terminator_vec: Vec<u8> = vec![b'\n'; BUFFER_SIZE as usize - data_vec.len()];
+        data_vec.append(&mut terminator_vec);
+        println!("vec = {}, ar = {}", data_vec.len(), data_exact.len());
+        data_exact.swap_with_slice(data_vec[..].as_mut());
+        drop(terminator_vec);
+        drop(data_vec);
+        self.send_exact(&data_exact, stream, debug_mode);
+        self.recv_exact(&mut data_exact_check, stream, debug_mode);
+        if data_exact_check == data_exact {
+            if *debug_mode {
+                println!("Done: Callback -> {}", self.location.as_ref().unwrap());
+                println!("{:#?} ", data_exact_check);
             }
-            None => {
-                panic!()
-            }
+        } else {
+            println!("Error: Callback -> {}", self.location.as_ref().unwrap());
+            println!("{:#?} ", data_exact_check);
+            panic!()
         }
     }
     fn read_exact(&mut self, buffer: &mut [u8], debug_mode: &bool) {
@@ -308,32 +311,6 @@ impl FileInfo {
             }
         }
     }
-    fn recv_until(
-        &mut self,
-        stream: &mut TcpStream,
-        until: char,
-        debug_mode: &bool,
-    ) -> Option<Vec<u8>> {
-        let mut buffer = Vec::new();
-        let mut stream_reader = BufReader::new(stream.try_clone().unwrap());
-        match stream_reader.read_until(until as u8, &mut buffer) {
-            Ok(_) => {
-                if *debug_mode {
-                    println!("Done: Receive Until -> {:#?}", self.location);
-                    println!("{:#?}", buffer);
-                }
-                buffer.pop();
-            }
-            Err(err_val) => {
-                println!(
-                    "Error: Receive Until -> {:#?} | Error: {}",
-                    self.location, err_val
-                );
-                return None;
-            }
-        }
-        Some(buffer)
-    }
     fn forge_file(&mut self, location: String, debug_mode: &bool) {
         //dont forget
         //directory recognition required for received location
@@ -376,22 +353,26 @@ impl FileInfo {
         }
     }
     fn callback_recv(&mut self, stream: &mut TcpStream, debug_mode: &bool) -> String {
-        match self.recv_until(stream, '\n', debug_mode) {
-            Some(mut callback) => {
-                if *debug_mode {
-                    println!("Done: Callback -> {:#?}", self.location);
-                    println!("{:#?} ", callback);
-                }
-                let data = String::from_utf8(callback.clone()).unwrap();
-                callback.push(b'\n');
-                self.send_exact(callback.as_slice(), stream, debug_mode);
-                data
-            }
-            None => {
-                println!("Error: Callback -> {:#?}", self.location);
-                panic!();
-            }
+        let mut buffer: [u8; BUFFER_SIZE as usize] = [0; BUFFER_SIZE as usize];
+        self.recv_exact(&mut buffer, stream, debug_mode);
+        if *debug_mode {
+            println!("Done: Callback -> {:#?}", self.location);
+            println!("{:#?} ", buffer);
         }
+        let data = String::from_utf8(
+            buffer
+                .split(|element| *element == b'\n')
+                .next()
+                .unwrap()
+                .to_vec(),
+        )
+        .unwrap();
+        if *debug_mode {
+            println!("Done: Split -> {:#?}", self.location);
+            println!("{:#?}", data);
+        }
+        self.send_exact(&buffer, stream, debug_mode);
+        data
     }
     fn save_exact(&mut self, buffer: &[u8], debug_mode: &bool) {
         let mut file_writer = BufWriter::new(self.file.as_ref().unwrap());
@@ -685,7 +666,6 @@ fn show_help() {
 fn main() {
     //DONT FORGET
     //First we should check folder structure and validation then make connection.
-    //Until's can be deprecated, 100k byte should be enough for eveything.(Security)
     println!("Hello, world!");
     let mut file_info: FileInfo = FileInfo::new();
     let user_environment: UserEnvironment = match take_args(UserEnvironment::new()) {
