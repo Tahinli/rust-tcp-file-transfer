@@ -28,7 +28,7 @@ jobs:
           id: tag
           with:
              tag_name: Release
-             body_path: SHA = ${{ github.sha }}
+             body: SHA = ${{ github.sha }}
              generate_release_notes: true
              files: target/release/rust-tcp-file-transfer
         
