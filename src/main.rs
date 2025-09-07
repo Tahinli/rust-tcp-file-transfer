@@ -17,7 +17,7 @@ struct UserEnvironment {
     debug: bool,
 }
 impl UserEnvironment {
-    fn user_environment() -> UserEnvironment {
+    fn new() -> UserEnvironment {
         UserEnvironment {
             ip: "127.0.0.1".parse().unwrap(),
             port: 2121,
@@ -39,7 +39,7 @@ struct FileInfo {
     progress: u8,
 }
 impl FileInfo {
-    fn file_info() -> FileInfo {
+    fn new() -> FileInfo {
         FileInfo {
             file: None,
             location: None,
@@ -63,12 +63,11 @@ impl FileInfo {
                         if Metadata::is_symlink(metadata) {
                             //Unix-Windows Problem
                             println!("\n\tError: Symlink Transfers've not Supported yet\n");
-                            return;
                             //self.open_file(debug_mode);
                             //self.send_file(stream, &(100 as u8),debug_mode);
                         } else if Metadata::is_file(metadata) {
                             self.open_file(debug_mode);
-                            self.send_file(stream, &(101 as u8), debug_mode);
+                            self.send_file(stream, &(101_u8), debug_mode);
                         } else if Metadata::is_dir(metadata) {
                             //path recognition and creation on the other side
                             //std:path
@@ -121,7 +120,7 @@ impl FileInfo {
                 }
             }
         } else {
-            match fs::metadata(&self.location.as_ref().unwrap()) {
+            match fs::metadata(self.location.as_ref().unwrap()) {
                 Ok(metadata) => {
                     self.metadata = Some(metadata);
                     if *debug_mode {
@@ -156,7 +155,6 @@ impl FileInfo {
                     self.location.as_ref().unwrap(),
                     err_val
                 );
-                return;
             }
         }
     }
@@ -220,16 +218,12 @@ impl FileInfo {
             if *debug_mode {
                 println!("Read Data = {:#?}", buffer);
             }
-            self.send_exact(&mut buffer, stream, debug_mode);
+            self.send_exact(&buffer, stream, debug_mode);
             self.show_progress(iteration, total_iteration);
         }
     }
     fn callback_validation(&mut self, stream: &mut TcpStream, data: &String, debug_mode: &bool) {
-        self.send_exact(
-            String::from(data.clone() + "\n").as_bytes(),
-            stream,
-            debug_mode,
-        );
+        self.send_exact(format!("{}{}", data, "\n").as_bytes(), stream, debug_mode);
         match self.recv_until(stream, '\n', debug_mode) {
             Some(callback_callback) => {
                 if callback_callback == data.to_string().as_bytes().to_vec() {
@@ -338,7 +332,7 @@ impl FileInfo {
                 return None;
             }
         }
-        return Some(buffer);
+        Some(buffer)
     }
     fn forge_file(&mut self, location: String, debug_mode: &bool) {
         //dont forget
@@ -390,7 +384,7 @@ impl FileInfo {
                 }
                 let data = String::from_utf8(callback.clone()).unwrap();
                 callback.push(b'\n');
-                self.send_exact(&callback.as_slice(), stream, debug_mode);
+                self.send_exact(callback.as_slice(), stream, debug_mode);
                 data
             }
             None => {
@@ -479,7 +473,7 @@ impl FileInfo {
             }
         }
         self.open_file(debug_mode);
-        let mut iteration: u64 = (&self.size_total / BUFFER_SIZE) + 1;
+        let mut iteration: u64 = (self.size_total / BUFFER_SIZE) + 1;
         let total_iteration = iteration;
         self.show_info(&iteration, debug_mode);
         while iteration != 0 {
@@ -490,7 +484,7 @@ impl FileInfo {
                 self.save_exact(&buffer, debug_mode);
             } else {
                 self.save_exact(
-                    &buffer[..(&self.size_total % BUFFER_SIZE) as usize],
+                    &buffer[..(self.size_total % BUFFER_SIZE) as usize],
                     debug_mode,
                 );
             }
@@ -507,7 +501,7 @@ impl FileInfo {
     fn show_progress(&mut self, iteration: u64, total_iteration: u64) {
         if iteration % 10 == 0 {
             let progress: u8 =
-                100 as u8 - ((iteration as f64 / total_iteration as f64) * 100 as f64) as u8;
+                100_u8 - ((iteration as f64 / total_iteration as f64) * 100_f64) as u8;
             if progress != self.progress {
                 self.progress = progress;
                 println!("%{}", self.progress);
@@ -601,7 +595,7 @@ fn send_or_receive(
     match user_environment.send {
         true => {
             let start_time = Instant::now();
-            FileInfo::reading_operations(file_info, stream, &debug_mode);
+            FileInfo::reading_operations(file_info, stream, debug_mode);
             let finish_time = Instant::now();
             println!("Done: Transfer");
             println!(
@@ -611,7 +605,7 @@ fn send_or_receive(
         }
         false => {
             let start_time = Instant::now();
-            FileInfo::writing_operations(file_info, stream, &debug_mode);
+            FileInfo::writing_operations(file_info, stream, debug_mode);
             let finish_time = Instant::now();
             println!("Done: Transfer");
             println!(
@@ -693,16 +687,13 @@ fn main() {
     //First we should check folder structure and validation then make connection.
     //Until's can be deprecated, 100k byte should be enough for eveything.(Security)
     println!("Hello, world!");
-    let mut file_info: FileInfo = FileInfo::file_info();
-    let user_environment: UserEnvironment;
-    match take_args(UserEnvironment::user_environment()) {
-        Some(usr_env) => {
-            user_environment = usr_env;
-        }
+    let mut file_info: FileInfo = FileInfo::new();
+    let user_environment: UserEnvironment = match take_args(UserEnvironment::new()) {
+        Some(usr_env) => usr_env,
         None => {
             return;
         }
-    }
+    };
     file_info.pass_user_environment(&user_environment);
     match user_environment.server {
         true => {
