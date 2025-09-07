@@ -21,7 +21,11 @@ jobs:
           run: cargo build --verbose
         - name: Run tests
           run: cargo test --verbose
-
+         
+        - name: Changelog
+          uses: thomaseizinger/keep-a-changelog-new-release@v1
+          with:
+             tag: ${{ github.event.inputs.version }}
         
         - name: Release
           uses: docker://antonyurchenko/git-release:latest
