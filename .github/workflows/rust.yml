@@ -24,7 +24,7 @@ jobs:
 
         
         - name: Release
-          uses: anton-yurchenko/git-release@v5.0.2
+          uses: docker://antonyurchenko/git-release:latest
           env:
              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           with:
