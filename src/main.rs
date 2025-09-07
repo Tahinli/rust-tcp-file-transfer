@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::fs::{File, Metadata, self};
 use std::time::Instant;
 use std::net::{TcpListener, TcpStream};
 use std::io::{Read, Write, self};
@@ -10,21 +10,51 @@ struct FileInfo
         location:String,
         bytes:Vec<u8>,
         size:usize,
+        metadata:Option<Metadata>,
     }
 impl FileInfo 
     {
         fn reading_operations(&mut self)
             {
-                self.read_file();
+                self.read_metadata();
+                match self.metadata
+                    {
+                        Some(ref mut metadata) =>
+                            {
+                                if Metadata::is_file(metadata)
+                                    {
+                                        self.read_file();
+                                    }
+                                else if Metadata::is_symlink(metadata)
+                                    {
+                                        self.read_file();
+                                    }
+                                else 
+                                    {
+                                        //path recognition and creation on the other side
+                                        //std:path
+                                        panic!("\n\tError: Folder Transfers've not Supported yet\n")
+                                    }
+                            }
+                        None =>
+                            {
+
+                            }
+                    }
+                
                 self.file_to_byte();
             }
         fn writing_operations(&mut self)
             {
                 self.write_file();
             }
+        fn read_metadata(&mut self)
+            {
+                self.metadata = Some(fs::metadata(&self.location).expect("Error: Read Metadata"));
+            }
         fn read_file(&mut self)
             {
-                self.file = Some(File::open(&self.location).expect("Error: Open File"))
+                self.file = Some(File::open(&self.location).expect("Error: Open File"));
             }
         fn file_to_byte(&mut self)
             {
@@ -81,7 +111,7 @@ impl Connection
     {
         fn server(self, file_info:&mut FileInfo)
             {
-                print!("Server: ");
+                print!("Server -> ");
                 let ip:String;
                 let port:String;
                 let address:String;
@@ -143,7 +173,7 @@ impl Connection
             }
         fn client(self, file_info:&mut FileInfo)
             {
-                print!("Client: ");
+                print!("Client -> ");
                 let ip:String;
                 let port:String;
                 let address:String;
@@ -185,7 +215,7 @@ fn take_string(output:String) -> String
     {
         let mut input = String::new();
         println!("{}", output);
-        io::stdin().read_line(&mut input).expect("Failed to Read from Console");
+        io::stdin().read_line(&mut input).expect("Error: Failed to Read from Console");
         input
     }
 fn take_arg() -> String
@@ -197,6 +227,8 @@ fn take_arg() -> String
 
 fn main() 
     {
+        //DONT FORGET
+        //First we should check folder structure and validation then make connection.
         println!("Hello, world!");
 
         let bytes:Vec<u8> = vec![];
@@ -207,6 +239,7 @@ fn main()
                 location:take_arg(),
                 bytes:bytes,
                 size:size,
+                metadata:None,
             };
         match &take_string("Input: Server 's', Client 'c'".to_string())[0..1]
             {
