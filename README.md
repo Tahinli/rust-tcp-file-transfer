@@ -12,6 +12,7 @@ TCP File Transfer Server and Client in Rust
 >
 > ./rust-tcp-file-transfer -cl -r -l ~/Documents/
 
+<img width="960" alt="image" src="https://github.com/user-attachments/assets/d0095f59-2489-4623-87f6-168e4fa52412">
 
 **TO-DO List**
 
