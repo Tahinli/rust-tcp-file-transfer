@@ -1,4 +1,4 @@
-name: Rust
+name: Rust Build & Test
 
 on:
   push:
@@ -19,9 +19,7 @@ jobs:
     - name: Build
       run: cargo build --verbose
     - name: Run tests
-      run: |
-            cargo test --verbose
-            echo ${{ github.event.head_commit.message }}
+      run: cargo test --verbose
 
   build_windows:
 
