@@ -1,0 +1,19 @@
+name: Rust Release
+on: 
+   push: 
+      branches: [ "main" ]
+jobs:
+   Download_then_Release:
+      runs-on: ubuntu-latest
+      permissions: 
+         contents: write
+      steps:
+         
+         - uses: actions/download-artifact@v3
+         - name: Download
+           with:
+              path: ~/Downloads/
+
+         - name: Display Downloads
+           run: ls -R
+           working-directory: ~/Downloads/
