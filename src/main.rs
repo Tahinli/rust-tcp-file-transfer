@@ -13,6 +13,15 @@ struct FileInfo
     }
 impl FileInfo 
     {
+        fn reading_operations(&mut self)
+            {
+                self.read_file();
+                self.file_to_byte();
+            }
+        fn writing_operations(&mut self)
+            {
+                self.write_file();
+            }
         fn read_file(&mut self)
             {
                 self.file = Some(File::open(&self.location).expect("Error: Open File"))
@@ -111,7 +120,7 @@ impl Connection
                                                                 file_info.bytes = data;
                                                                 let start_disk_time = Instant::now();
                                                                 println!("Passed: Network -> {:#?}", start_disk_time.duration_since(start_time));
-                                                                FileInfo::write_file(file_info);
+                                                                FileInfo::writing_operations(file_info);
                                                                 let finish_time = Instant::now();
                                                                 println!("Passed: Write -> {:#?}", finish_time.duration_since(start_disk_time));
                                                                 println!("Passed: Total -> {:#?}", finish_time.duration_since(start_time));
@@ -155,8 +164,7 @@ impl Connection
                             {
                                 let start_time = Instant::now();
                                 println!("Connected");
-                                FileInfo::read_file(file_info);
-                                FileInfo::file_to_byte(file_info);
+                                FileInfo::reading_operations(file_info);
                                 let start_network_time = Instant::now();
                                 println!("Passed: Read -> {:#?}", start_network_time.duration_since(start_time));
                                 socket.write_all(&file_info.bytes).unwrap();
