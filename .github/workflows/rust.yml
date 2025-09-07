@@ -23,6 +23,11 @@ jobs:
         - name: Run tests
           run: cargo test --verbose
 
+        - name: Delete Old Release
+          uses: liudonghua123/delete-release-action@v1
+          with:
+             release_name: 'Release'
+
         - name: Release
           uses: softprops/action-gh-release@v0.1.15
           with:
