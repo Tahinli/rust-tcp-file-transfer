@@ -42,6 +42,7 @@ jobs:
                 style: Code Style
                 revert: Reverts
              default-commit-type     : Other Changes
+             release-name            : v1.0.0
              release-name-prefix     : ""
              mention-authors         : true
              mention-new-contributors: true
