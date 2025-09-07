@@ -80,9 +80,6 @@ jobs:
 
         - name: Unzip
           run: |
-                  unzip *linux* -d linux/
-                  unzip *windows* -d windows/
-                  unzip *macos* -d macos/
-                  rm -f *.zip
+                  file -b *
                   ls -R
           working-directory: /home/runner/work/rust-tcp-file-transfer/rust-tcp-file-transfer/Downloads/
