@@ -21,9 +21,6 @@ jobs:
           run:  cargo build --release
         - name: Run tests
           run: cargo test --verbose
-
-        - name: Executable
-          run: chmod +x /home/runner/work/rust-tcp-transfer/target/release/rust-tcp-file-transfer
          
         - name: Changelog
           uses: ardalanamini/auto-changelog@v4
@@ -31,15 +28,17 @@ jobs:
           with:
              github-token: ${{ github.token }}
              release-name: v0.0.1
- 
+        
+        - uses: actions/upload-artifact@v3
+          with:
+             name: rust-tcp-transfer
+             path: target/release/rust-tcp-file-transfer
+
         - name: Release
           uses: softprops/action-gh-release@v0.1.15
           id: tag
           with:
              tag_name: Release
-        - uses: actions/upload-artifact@v3
-          with:
-             name: rust-tcp-transfer
-             path: target/release/rust-tcp-file-transfer
+        
         
          
