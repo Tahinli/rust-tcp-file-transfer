@@ -82,7 +82,9 @@ impl FileInfo
                                                     {
                                                         //Recursivity Problem
                                                         println!("\n\tError: Symlink Transfers've not Supported yet\n");
-                                                        return;
+                                                        //return;
+                                                        self.open_file(debug_mode);
+                                                        self.send_file(stream, debug_mode);
                                                     }
                                                 else if Metadata::is_file(metadata)
                                                     {
@@ -123,19 +125,37 @@ impl FileInfo
             }
         fn read_metadata(&mut self, debug_mode:&bool)
             {
-                match fs::metadata(&self.location.as_ref().unwrap())
+                let path = PathBuf::from(self.location.as_ref().unwrap());
+                if path.is_symlink()
                     {
-                        Ok(metadata) =>
+                        match path.symlink_metadata()
                             {
-                                self.metadata = Some(metadata);
-                                if *debug_mode
+                                Ok(metadata) =>
                                     {
-                                        println!("Done: Read Metadata -> {:#?}", self.metadata);
+                                        self.metadata = Some(metadata);
+                                    }
+                                Err(err_val) =>
+                                    {
+                                        println!("Error: Symlink Metadata -> {:#?} | Error: {}", &self.location, err_val);
                                     }
                             }
-                        Err(err_val) =>
+                    }
+                else
+                    {
+                        match fs::metadata(&self.location.as_ref().unwrap())
                             {
-                                println!("Error: Read Metadata -> {} | Error: {}", &self.location.as_ref().unwrap(), err_val);
+                                Ok(metadata) =>
+                                    {
+                                        self.metadata = Some(metadata);
+                                        if *debug_mode
+                                            {
+                                                println!("Done: Read Metadata -> {:#?}", self.metadata);
+                                            }
+                                    }
+                                Err(err_val) =>
+                                    {
+                                        println!("Error: Read Metadata -> {} | Error: {}", &self.location.as_ref().unwrap(), err_val);
+                                    }
                             }
                     }
             }
