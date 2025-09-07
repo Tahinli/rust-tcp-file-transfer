@@ -513,15 +513,15 @@ fn show_help()
         println!("\n\n\n");
         println!("  Arguments   |  Details                   |  Defaults");
         println!("--------------------------------------------------------------");
-        println!("  --ip        |  Specify IP Address        |  127.0.0.1");
-        println!("  --port      |  Specify Port Address      |  2121");
-        println!("  --location  |  Specify Location Address  |  Same as Program");
-        println!("  --server    |  Start as a Server         |  False");
-        println!("  --client    |  Start as a Client         |  True");
-        println!("  --send      |  Start as a Sender         |  False");
-        println!("  --receive   |  Start as a Receiver       |  True");
-        println!("  --debug     |  Start in Debug Mode       |  False");
-        println!("  --help      |  Shows Help                |  False");
+        println!("  --ip        |  Specifies IP Address       |  127.0.0.1");
+        println!("  --port      |  Specifies Port Address     |  2121");
+        println!("  --location  |  Specifies Location Address |  Same as Program");
+        println!("  --server    |  Starts as a Server         |  False");
+        println!("  --client    |  Starts as a Client         |  True");
+        println!("  --send      |  Starts as a Sender         |  False");
+        println!("  --receive   |  Starts as a Receiver       |  True");
+        println!("  --debug     |  Starts in Debug Mode       |  False");
+        println!("  --help      |  Shows Help                 |  False");
         println!("\n\n\n");
     }
 fn main() 
