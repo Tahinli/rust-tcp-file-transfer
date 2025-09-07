@@ -30,7 +30,7 @@ jobs:
                 SHA: ${{ github.sha }}
           with:
              tag_name: Release
-             body: SHA = ${{ echo $SHA }}
+             body: SHA = ${{ $SHA }}
              generate_release_notes: true
              files: target/release/rust-tcp-file-transfer
         
