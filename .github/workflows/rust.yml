@@ -17,7 +17,7 @@ jobs:
      permissions:
          contents: write
      steps:
-        - uses: actions/checkout@v3
+        - uses: actions/checkout@latest
         - name: Build
           run: cargo build --verbose
         - name: Run tests
@@ -25,18 +25,18 @@ jobs:
 
         - name: Conventional
           id: changelog_id
-          uses: TriPSs/conventional-changelog-action@v4
+          uses: TriPSs/conventional-changelog-action@latest
           with:
              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
         - name: Release
           id: release_id
-          uses: actions/create-release@v1
+          uses: actions/create-release@latest
           env:
              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          with:
+          with:       
              tag_name: ${{ steps.changelog_id.outputs.tag }}
-             release_name: ${{ github.event.release.tag_name }}
-             body: ${{ steps.changelog_id.outputs.clean_changelog }}
+             name: ${{ steps.changelog_id.outputs.tag }}
+             body: ${{steps.changelog_id.outputs.clean_changelog}}
 
 
