@@ -28,6 +28,7 @@ jobs:
           id: tag
           with:
              tag_name: Release
+             body: ${{ steps.generate_release_notes }}
              files: target/release/rust-tcp-file-transfer
         
         
