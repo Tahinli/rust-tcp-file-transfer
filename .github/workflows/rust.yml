@@ -27,7 +27,7 @@ jobs:
           id: changelog_id
           uses: TriPSs/conventional-changelog-action@v4
           with:
-             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+             github_token: ${{ secrets.GITHUB_TOKEN }}
 
         - name: Release
           id: release_id
