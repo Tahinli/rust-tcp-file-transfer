@@ -31,9 +31,8 @@ jobs:
 
         - name: Release
           id: release_id
-          uses: "marvinpinto/action-automatic-releases@latest"
+          uses: elgohr/Github-Release-Action@v4
+          env:
+             GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           with:
-             repo_token: "${{ secrets.GITHUB_TOKEN }}"
-             automatic_release_tag: ${{ steps.changelog_id.outputs.tag }}
-
-
+             title: ${{ steps.changelog_id.outputs.tag }}
