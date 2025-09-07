@@ -16,7 +16,7 @@ struct UserEnvironment
         server:bool,
         send:bool,
         location:Option<String>,
-		debug:DebugMode,
+		debug:bool,
     }
 #[derive(Debug)]
 struct FileInfo
@@ -339,32 +339,6 @@ impl FileInfo
                     }            
             }
     }
-#[derive(Debug)]
-enum DebugMode
-    {
-        On,
-        Off
-    }
-impl DebugMode {
-    fn debug_mode(&self) -> bool
-        {
-            match self
-                {
-                    DebugMode::On =>
-                        {
-                            println!("Debug: ON");
-                            let debug = true;
-                            debug
-                        }
-                    DebugMode::Off =>
-                        {
-                            println!("Debug: OFF");
-                            let debug = false;
-                            debug
-                        }
-                }
-        }
-}
 enum Connection
     {
         Server(String, String),
@@ -373,10 +347,10 @@ enum Connection
 
 impl Connection 
     {
-        fn server(self, file_info:&mut FileInfo, debug_mode:bool, user_environment:&UserEnvironment)
+        fn server(self, file_info:&mut FileInfo, user_environment:&UserEnvironment)
             {
                 print!("Server -> ");
-				if debug_mode
+				if user_environment.debug
 					{
 						println!("{:#?}", user_environment);
 						println!("{:#?}", file_info);
@@ -403,7 +377,7 @@ impl Connection
                                 Ok(mut stream) =>
                                     {
                                         println!("Connected");
-                                        send_or_receive(file_info, &mut stream, &debug_mode, user_environment);
+                                        send_or_receive(file_info, &mut stream, &user_environment.debug, user_environment);
                                     }
                                 Err(e) =>
                                     {
@@ -413,10 +387,10 @@ impl Connection
                             }
                     }
             }
-        fn client(self, file_info:&mut FileInfo, debug_mode:bool, user_environment:&UserEnvironment)
+        fn client(self, file_info:&mut FileInfo, user_environment:&UserEnvironment)
             {
                 print!("Client -> ");
-				if debug_mode
+				if user_environment.debug
 					{
 						println!("{:#?}", user_environment);
 						println!("{:#?}", file_info);
@@ -440,7 +414,7 @@ impl Connection
                         Ok(mut stream) =>
                             {
                                 println!("Connected");
-                                send_or_receive(file_info, &mut stream, &debug_mode, user_environment);
+                                send_or_receive(file_info, &mut stream, &user_environment.debug, user_environment);
                             }
                         Err(e) =>
                             {
@@ -470,13 +444,13 @@ fn send_or_receive(file_info:&mut FileInfo, stream:&mut TcpStream, debug_mode:&b
                 }
         }
     }
-fn take_args(user_environment:&mut UserEnvironment)
+fn take_args(user_environment:&mut UserEnvironment) -> bool
     {
         let env_args:Vec<String> = env::args().collect();
-		if env_args.len() > 15
+		if env_args.len() > 16
 			{
 				println!("Error: Too Many Arguments, You Gave {} Arguments", env_args.len());
-				panic!();
+				return false;
 			}
 		let mut i = 1;
 		while i < env_args.len()
@@ -516,15 +490,39 @@ fn take_args(user_environment:&mut UserEnvironment)
 							}
 						"--debug" =>
 							{
-								user_environment.debug = DebugMode::On;
+								user_environment.debug = false;
 							}
+                        "--help" =>
+                            {
+                                show_help();
+                                return false;
+
+                            }
 						err =>
 							{
 								println!("Error: Invalid Argument, You Gave {}", err);
+                                return false;
 							}
 					}
 				i += 1;
 			}
+        true
+    }
+fn show_help()
+    {
+        println!("\n\n\n");
+        println!("  Arguments   |  Details                   |  Defaults");
+        println!("--------------------------------------------------------------");
+        println!("  --ip        |  Specify IP Address        |  127.0.0.1");
+        println!("  --port      |  Specify Port Address      |  2121");
+        println!("  --location  |  Specify Location Address  |  Same as Program");
+        println!("  --server    |  Start as a Server         |  False");
+        println!("  --client    |  Start as a Client         |  True");
+        println!("  --send      |  Start as a Sender         |  False");
+        println!("  --receive   |  Start as a Receiver       |  True");
+        println!("  --debug     |  Start in Debug Mode       |  False");
+        println!("  --help      |  Shows Help                |  False");
+        println!("\n\n\n");
     }
 fn main() 
     {
@@ -539,9 +537,12 @@ fn main()
                 server:false,
                 send:false,
                 location:None,
-				debug:DebugMode::Off,
+				debug:false,
             };
-        take_args(&mut user_environment);
+        if !take_args(&mut user_environment)
+            {
+                return;
+            }
         let mut file_info = FileInfo
             {
                 file:None,
@@ -555,13 +556,13 @@ fn main()
                     {
                         Connection::server
                         (Connection::Server(user_environment.ip.to_string(), user_environment.port.to_string()),
-                          &mut file_info, DebugMode::debug_mode(&user_environment.debug), &user_environment);
+                          &mut file_info, &user_environment);
                     },
                 false => 
                     {
                         Connection::client
                         (Connection::Client(user_environment.ip.to_string(), user_environment.port.to_string()),
-                          &mut file_info, DebugMode::debug_mode(&user_environment.debug), &user_environment);
+                          &mut file_info, &user_environment);
                     }
             }
     }
