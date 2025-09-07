@@ -18,7 +18,7 @@ jobs:
      steps:
         - uses: actions/checkout@v3
         - name: Build
-          run: cargo build --verbose
+          run: cargo build --release
         - name: Run tests
           run: cargo test --verbose
          
@@ -34,5 +34,9 @@ jobs:
           id: tag
           with:
              tag_name: Release
+        - uses: actions/upload-artifact@v3
+          with:
+             name: rust-tcp-transfer
+             path: /home/runner/work/rust-tcp-file-transfer/rust-tcp-file-transfer/target/release/rust-tcp-file-transfer
         
          
