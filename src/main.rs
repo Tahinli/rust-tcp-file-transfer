@@ -367,16 +367,8 @@ impl Connection
                             {
                                 Ok(mut stream) =>
                                     {
-                                        let mut stay = true;
-                                        while stay 
-                                            {
-                                                println!("Connected");
-                                                let start_time = Instant::now();
-                                                FileInfo::writing_operations(file_info, &mut stream, &debug_mode);
-                                                let finish_time = Instant::now();
-                                                println!("Passed: Total -> {:#?}", finish_time.duration_since(start_time));
-                                                stay = false;
-                                            }
+                                        println!("Connected");
+                                        send_or_receive(file_info, &mut stream, &debug_mode);
                                     }
                                 Err(e) =>
                                     {
@@ -408,10 +400,7 @@ impl Connection
                         Ok(mut stream) =>
                             {
                                 println!("Connected");
-                                let start_time = Instant::now();
-                                FileInfo::reading_operations(file_info, &mut stream, &debug_mode);
-                                let finish_time = Instant::now();
-                                println!("Passed: Total -> {:#?}", finish_time.duration_since(start_time));
+                                send_or_receive(file_info, &mut stream, &debug_mode);
                             }
                         Err(e) =>
                             {
@@ -421,7 +410,31 @@ impl Connection
                 
             }
     }
-
+fn send_or_receive(file_info:&mut FileInfo, stream:&mut TcpStream, debug_mode:&bool)
+    {
+        match &take_string("Input: Send 's', Receive 'r'".to_string())[..1]
+        {
+            "s" =>
+                {
+                    println!("Connected");
+                    let start_time = Instant::now();
+                    FileInfo::reading_operations(file_info, stream, &debug_mode);
+                    let finish_time = Instant::now();
+                    println!("Passed: Total -> {:#?}", finish_time.duration_since(start_time));
+                }
+            "r" =>
+                {
+                    let start_time = Instant::now();
+                    FileInfo::writing_operations(file_info, stream, &debug_mode);
+                    let finish_time = Instant::now();
+                    println!("Passed: Total -> {:#?}", finish_time.duration_since(start_time));
+                }
+            input =>
+                {
+                    println!("Error: Give Valid Input, You Gave : {}", input);
+                    panic!()                                                    }
+        }
+    }
 fn take_string(output:String) -> String
     {
         let mut input = String::new();
