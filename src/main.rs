@@ -66,10 +66,7 @@ impl FileInfo
             }
         fn reading_operations(&mut self, stream:&mut TcpStream, debug_mode:&bool)
             {
-                //Pathbuf Symlink Metadata
-                //Pathbuf is_Symlink
-                
-                match &self.location
+                match self.location.as_ref()
                     {
                         Some(_) =>
                             {
@@ -80,29 +77,35 @@ impl FileInfo
                                             {
                                                 if Metadata::is_symlink(metadata)
                                                     {
-                                                        //Recursivity Problem
+                                                        //Unix-Windows Problem
                                                         println!("\n\tError: Symlink Transfers've not Supported yet\n");
-                                                        //return;
-                                                        self.open_file(debug_mode);
-                                                        self.send_file(stream, debug_mode);
+                                                        return;
+                                                        //self.open_file(debug_mode);
+                                                        //self.send_file(stream, &(100 as u8),debug_mode);
                                                     }
                                                 else if Metadata::is_file(metadata)
                                                     {
                                                         self.open_file(debug_mode);
-                                                        self.send_file(stream, debug_mode);
+                                                        self.send_file(stream, &(101 as u8),debug_mode);
                                                     }
                                                 
-                                                else 
+                                                else if Metadata::is_dir(metadata)
                                                     {
                                                         //path recognition and creation on the other side
                                                         //std:path
                                                         println!("\n\tError: Folder Transfers've not Supported yet\n");
                                                         return;
+                                                        //self.open_file(debug_mode);
+                                                        //self.send_file(stream, &(102 as u8),debug_mode);
+                                                    }
+                                                else 
+                                                    {
+                                                        println!("Error: Undefined Type -> {}", self.location.as_ref().unwrap());
                                                     }
                                             }
                                         None =>
                                             {
-                                                println!("Error: Read Metadata -> {:#?}", &self.location);
+                                                println!("Error: Read Metadata -> {}", self.location.as_ref().unwrap());
                                             }
                                     }
                             }
@@ -179,14 +182,49 @@ impl FileInfo
                     }
                 
             }
-        fn send_file(&mut self, stream:&mut TcpStream, debug_mode:&bool)
+        fn send_file(&mut self, stream:&mut TcpStream, what_type:&u8,debug_mode:&bool)
             {
                 self.size_total = self.metadata.as_ref().unwrap().len();
                 let mut iteration = (self.size_total/BUFFER_SIZE)+1;
                 let total_iteration = iteration;
 				let path_buf = PathBuf::from(Path::new(self.location.as_ref().unwrap()));
+                match what_type
+                    {
+                        100 =>
+                            {
+                                if *debug_mode
+                                    {
+                                        println!("Done: Symlink Detected -> {}", self.location.as_ref().unwrap());
+                                    }
+                                self.callback_validation(stream, &String::from("100"), debug_mode);
+                            }
+                        101 =>
+                            {
+                                if *debug_mode
+                                    {
+                                        println!("Done: File Detected -> {}", self.location.as_ref().unwrap());
+                                    }
+                                self.callback_validation(stream, &String::from("101"), debug_mode)
+                            }
+                        102 =>
+                            {
+                                if *debug_mode
+                                    {
+                                        println!("Done: Folder Detected -> {}", self.location.as_ref().unwrap());
+                                    }
+                                self.callback_validation(stream, &String::from("102"), debug_mode)
+                            }
+                        _ =>
+                            {
+                                
+                                println!("Error: Undefined Type Detected ->{}", self.location.as_ref().unwrap());
+                                return;
+                                    
+                            }
+                    }
                 self.callback_validation(stream, &(self.size_total.to_string()), debug_mode);
 				self.callback_validation(stream, &path_buf.file_name().unwrap().to_str().unwrap().to_string(), debug_mode);
+                
 				self.show_info(&iteration, debug_mode);
                 while iteration != 0
                     {
@@ -449,11 +487,44 @@ impl FileInfo
             }
         fn write_file(&mut self, stream:&mut TcpStream, debug_mode:&bool)
             {
-                let size:u64 = self.callback_recv(stream, debug_mode).parse().unwrap();
+                let what_type:u8 = self.callback_recv(stream, debug_mode).parse().unwrap();
+                self.size_total = self.callback_recv(stream, debug_mode).parse().unwrap();
 				let location:String = self.callback_recv(stream, debug_mode);
-				self.forge_file(location, debug_mode);
+                match what_type
+                    {
+                        100 =>
+                            {
+                                if *debug_mode
+                                    {
+                                        println!("Done: Symlink Detected -> {}", self.location.as_ref().unwrap());
+                                    }
+                                self.forge_file( location, debug_mode);
+                                return;
+                            }
+                        101 =>
+                            {
+                                if *debug_mode
+                                    {
+                                        println!("Done: File Detected -> {}", self.location.as_ref().unwrap());
+                                    }
+                                self.forge_file(location, debug_mode);
+                            }
+                        102 =>
+                            {
+                                if *debug_mode
+                                    {
+                                        println!("Done: Folder Detected -> {}", self.location.as_ref().unwrap());
+                                    }
+                                self.forge_file(location, debug_mode);
+                            }
+                        _ =>
+                            {
+                                println!("Error: Undefined Type -> {}", self.location.as_ref().unwrap());
+                                return;
+                            }
+                    }
                 self.open_file(debug_mode);
-                let mut iteration:u64 = (size/BUFFER_SIZE)+1;
+                let mut iteration:u64 = (&self.size_total/BUFFER_SIZE)+1;
                 let total_iteration = iteration;
 				self.show_info(&iteration, debug_mode);
                 while iteration != 0
@@ -467,7 +538,7 @@ impl FileInfo
                                 }
                             else 
                                 {
-                                    self.save_exact(&buffer[..(size%BUFFER_SIZE) as usize], debug_mode);
+                                    self.save_exact(&buffer[..(&self.size_total%BUFFER_SIZE) as usize], debug_mode);
                                 }
                         self.show_progress(iteration, total_iteration);
                     }            
@@ -648,7 +719,7 @@ fn take_args(mut user_environment:UserEnvironment) -> Option<UserEnvironment>
 							}
 						"--debug" | "-d" =>
 							{
-								user_environment.debug = false;
+								user_environment.debug = true;
 							}
                         "--help" | "-h" =>
                             {
