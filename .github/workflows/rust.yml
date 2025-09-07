@@ -39,7 +39,7 @@ jobs:
           id: tag
           with:
              tag_name: Release
-             files: https://github.com/Tahinli/rust-tcp-file-transfer/suites/16255885900/artifacts/928208175
+             files: rust-tcp-file-transfer
         
         
          
