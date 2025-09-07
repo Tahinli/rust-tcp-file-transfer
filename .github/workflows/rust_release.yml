@@ -13,7 +13,8 @@ jobs:
          - name: Download
            with:
               path: ~/Downloads/
-
+         
+         - uses: actions/checkout@v3
          - name: Display Downloads
            run: ls -R
            working-directory: ~/Downloads/
