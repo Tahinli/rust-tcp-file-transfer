@@ -39,7 +39,7 @@ jobs:
           id: tag
           with:
              tag_name: Release
-             files: rust-tcp-transfer
+             files: /target/release/rust-tcp-transfer
         
         
          
