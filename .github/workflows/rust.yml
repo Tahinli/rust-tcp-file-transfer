@@ -37,6 +37,6 @@ jobs:
         - uses: actions/upload-artifact@v3
           with:
              name: rust-tcp-transfer
-             path: /home/runner/work/rust-tcp-file-transfer/rust-tcp-file-transfer/target/release/rust-tcp-file-transfer
+             path: target/release/rust-tcp-file-transfer
         
          
