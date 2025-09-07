@@ -29,10 +29,12 @@ jobs:
           env: 
                 SHA: ${{ github.sha }}
           with:
-             tag_name: ${{ github.event.repository.updated_at }}
+             tag_name: ${{ date +"%d-%m-%y | %T" }}
              body: SHA = $SHA
              generate_release_notes: true
              files: target/release/rust-tcp-file-transfer
+        
+        
         
         
          
