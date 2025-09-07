@@ -1,7 +1,8 @@
 use std::fs::{File, Metadata, self};
+use std::os::unix::prelude::FileExt;
 use std::time::Instant;
 use std::net::{TcpListener, TcpStream};
-use std::io::{Read, Write, self, BufWriter, BufReader, BufRead};
+use std::io::{Read, Write, self, BufWriter, BufReader, BufRead, Seek};
 use std::env::{self};
 
 
@@ -143,7 +144,7 @@ impl FileInfo
                         let mut file_reader = BufReader::new(self.file.as_ref().unwrap());
                         if iteration != 0
                             {
-                                match file_reader.read_exact(&mut buffer)
+                                match self.file.as_ref().unwrap().read_exact(&mut buffer)
                                     {
                                         Ok(_) =>
                                             {
@@ -161,14 +162,12 @@ impl FileInfo
                             }
                         else 
                             {
-                                let mut last_buffer:Vec<u8> = Vec::new();
-                                match file_reader.read_to_end(&mut last_buffer)
+                                match self.file.as_ref().unwrap().read_exact(&mut buffer[..(self.metadata.as_ref().unwrap().len()%BUFFER_SIZE as u64) as usize])
                                     {
-                                        Ok(read_size) =>
+                                        //fix it
+                                        Ok(_) =>
                                             {
-                                                self.size_current += read_size;
-                                                last_buffer.append(&mut buffer[..(self.metadata.as_ref().unwrap().len()%BUFFER_SIZE as u64) as usize].to_vec());
-                                                buffer.copy_from_slice(&last_buffer);
+                                                self.size_current += (self.metadata.as_ref().unwrap().len()%BUFFER_SIZE as u64) as usize;
                                                 println!("Size now = {}", self.size_current);
                                                 //println!("{} | {} | {:#?}", iteration,buffer.len(), buffer);
                                             }
