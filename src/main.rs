@@ -8,6 +8,52 @@ use std::time::Instant;
 const BUFFER_SIZE: u64 = 100000;
 
 #[derive(Debug)]
+enum FileType {
+    Symlink,
+    File,
+    Folder,
+}
+impl FileType {
+    fn what_type(value: u8, file_info: &FileInfo, debug_mode: &bool) -> FileType {
+        match value {
+            100 => {
+                if *debug_mode {
+                    println!(
+                        "Done: Symlink Detected -> {}",
+                        file_info.location.as_ref().unwrap()
+                    );
+                }
+                FileType::Symlink
+            }
+            101 => {
+                if *debug_mode {
+                    println!(
+                        "Done: File Detected -> {}",
+                        file_info.location.as_ref().unwrap()
+                    );
+                }
+                FileType::File
+            }
+            102 => {
+                if *debug_mode {
+                    println!(
+                        "Done: Folder Detected -> {}",
+                        file_info.location.as_ref().unwrap()
+                    );
+                }
+                FileType::Folder
+            }
+            _ => {
+                println!(
+                    "Error: Undefined Type -> {}",
+                    file_info.location.as_ref().unwrap()
+                );
+                panic!()
+            }
+        }
+    }
+}
+#[derive(Debug)]
 struct UserEnvironment {
     ip: IpAddr,
     port: u16,
@@ -72,7 +118,6 @@ impl FileInfo {
                             //path recognition and creation on the other side
                             //std:path
                             println!("\n\tError: Folder Transfers've not Supported yet\n");
-                            return;
                             //self.open_file(debug_mode);
                             //self.send_file(stream, &(102 as u8),debug_mode);
                         } else {
@@ -80,7 +125,6 @@ impl FileInfo {
                                 "Error: Undefined Type -> {}",
                                 self.location.as_ref().unwrap()
                             );
-                            return;
                         }
                     }
                     None => {
@@ -223,16 +267,15 @@ impl FileInfo {
         }
     }
     fn callback_validation(&mut self, stream: &mut TcpStream, data: &String, debug_mode: &bool) {
-        let mut data_exact: [u8; BUFFER_SIZE as usize] = [b'\n'; BUFFER_SIZE as usize];
-        let mut data_exact_check: [u8; BUFFER_SIZE as usize] = [b'\n'; BUFFER_SIZE as usize];
         let mut data_vec: Vec<u8> = data.as_bytes().to_vec();
         let mut terminator_vec: Vec<u8> = vec![b'\n'; BUFFER_SIZE as usize - data_vec.len()];
         data_vec.append(&mut terminator_vec);
-        println!("vec = {}, ar = {}", data_vec.len(), data_exact.len());
-        data_exact.swap_with_slice(data_vec[..].as_mut());
         drop(terminator_vec);
+        let mut data_exact: [u8; BUFFER_SIZE as usize] = [b'\n'; BUFFER_SIZE as usize];
+        data_exact.swap_with_slice(data_vec[..].as_mut());
         drop(data_vec);
         self.send_exact(&data_exact, stream, debug_mode);
+        let mut data_exact_check: [u8; BUFFER_SIZE as usize] = [b'\n'; BUFFER_SIZE as usize];
         self.recv_exact(&mut data_exact_check, stream, debug_mode);
         if data_exact_check == data_exact {
             if *debug_mode {
@@ -416,43 +459,16 @@ impl FileInfo {
         }
     }
     fn write_file(&mut self, stream: &mut TcpStream, debug_mode: &bool) {
-        let what_type: u8 = self.callback_recv(stream, debug_mode).parse().unwrap();
+        let what_type: FileType = FileType::what_type(
+            self.callback_recv(stream, debug_mode)
+                .parse::<u8>()
+                .unwrap(),
+            self,
+            debug_mode,
+        );
         self.size_total = self.callback_recv(stream, debug_mode).parse().unwrap();
         let location: String = self.callback_recv(stream, debug_mode);
-        match what_type {
-            100 => {
-                if *debug_mode {
-                    println!(
-                        "Done: Symlink Detected -> {}",
-                        self.location.as_ref().unwrap()
-                    );
-                }
-                self.forge_file(location, debug_mode);
-                return;
-            }
-            101 => {
-                if *debug_mode {
-                    println!("Done: File Detected -> {}", self.location.as_ref().unwrap());
-                }
-                self.forge_file(location, debug_mode);
-            }
-            102 => {
-                if *debug_mode {
-                    println!(
-                        "Done: Folder Detected -> {}",
-                        self.location.as_ref().unwrap()
-                    );
-                }
-                self.forge_file(location, debug_mode);
-            }
-            _ => {
-                println!(
-                    "Error: Undefined Type -> {}",
-                    self.location.as_ref().unwrap()
-                );
-                return;
-            }
-        }
+        self.file_forger(what_type, location, debug_mode);
         self.open_file(debug_mode);
         let mut iteration: u64 = (self.size_total / BUFFER_SIZE) + 1;
         let total_iteration = iteration;
@@ -470,6 +486,19 @@ impl FileInfo {
                 );
             }
             self.show_progress(iteration, total_iteration);
+        }
+    }
+    fn file_forger(&mut self, file_type: FileType, location: String, debug_mode: &bool) {
+        match file_type {
+            FileType::Symlink => {
+                self.forge_file(location, debug_mode);
+            }
+            FileType::File => {
+                self.forge_file(location, debug_mode);
+            }
+            FileType::Folder => {
+                self.forge_file(location, debug_mode);
+            }
         }
     }
     fn show_info(&mut self, iteration: &u64, debug_mode: &bool) {
