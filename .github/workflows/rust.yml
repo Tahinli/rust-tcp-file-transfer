@@ -23,10 +23,20 @@ jobs:
         - name: Run tests
           run: cargo test --verbose
 
-        - name: Release
+        - name: Set short git commit SHA
+          id: vars
+          run: |
+             calculatedSha=$(git rev-parse --short ${{ github.sha }})
+             echo "::set-output name=short_sha::$calculatedSha"
+
+        - name: Confirm git commit SHA output
+          run: echo ${{ steps.vars.outputs.short_sha }}
+
+
+        - name: ${{ vars }}
           uses: softprops/action-gh-release@v0.1.15
           with:
-             tag_name: Release
+             tag_name: ${{ vars }}
              generate_release_notes: true
              files: target/release/rust-tcp-file-transfer
         
