@@ -28,8 +28,9 @@ jobs:
           id: tag
           env: 
                 SHA: ${{ github.sha }}
+                TIME: ${{ date +"%d-%m-%y | %T" }}
           with:
-             tag_name: ${{ date +"%d-%m-%y | %T" }}
+             tag_name: $TIME
              body: SHA = $SHA
              generate_release_notes: true
              files: target/release/rust-tcp-file-transfer
