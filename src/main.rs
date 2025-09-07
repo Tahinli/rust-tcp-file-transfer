@@ -5,7 +5,7 @@ use std::io::{Read, Write, self, BufWriter, BufReader, BufRead};
 use std::env::{self};
 
 
-const BUFFER_SIZE:usize = 100000;
+const BUFFER_SIZE:u64 = 1000000;
 struct FileInfo
     {
         file:Option<File>,
@@ -73,21 +73,21 @@ impl FileInfo
         fn send_file(&mut self, stream:&mut TcpStream)
             {
                 let size = self.metadata.as_ref().unwrap().len();
-                let mut iteration = (size/BUFFER_SIZE as u64)+1;
+                let mut iteration = (size/BUFFER_SIZE)+1;
                 self.handshake_validation(stream, size);
                 println!("Size = {}", size);
                 println!("Iteration = {}", iteration);
                 while iteration != 0
                     {
                         iteration -= 1;
-                        let mut buffer = [0u8;BUFFER_SIZE];
+                        let mut buffer = [0u8;BUFFER_SIZE as usize];
                         if iteration != 0
                             {
                                 self.read_exact(&mut buffer);
                             }
                         else 
                             {
-                                self.read_exact(&mut buffer[..(size%BUFFER_SIZE as u64) as usize]);
+                                self.read_exact(&mut buffer[..(size%BUFFER_SIZE) as usize]);
                             }
                         self.send_exact(&mut buffer, stream);
                         
@@ -256,13 +256,13 @@ impl FileInfo
         fn write_file(&mut self, stream:&mut TcpStream)
             {
                 let size = self.handshake_recv(stream);
-                let mut iteration:u64 = (size/BUFFER_SIZE as u64)+1;
+                let mut iteration:u64 = (size/BUFFER_SIZE)+1;
                 println!("Size = {}", size);
                 println!("Iteration = {}", iteration);
                 while iteration != 0
                     {
                         iteration -= 1;
-                        let mut buffer = [0u8;BUFFER_SIZE];
+                        let mut buffer = [0u8;BUFFER_SIZE as usize];
                         self.recv_exact(&mut buffer, stream);
                         if iteration != 0
                                 {
@@ -270,7 +270,7 @@ impl FileInfo
                                 }
                             else 
                                 {
-                                    self.save_exact(&buffer[..(size%BUFFER_SIZE as u64) as usize]);
+                                    self.save_exact(&buffer[..(size%BUFFER_SIZE) as usize]);
                                 }
                     }            
             }
