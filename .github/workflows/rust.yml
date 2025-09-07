@@ -90,6 +90,7 @@ jobs:
             tag_name: ${{ steps.vars.outputs.short_sha }}
             generate_release_notes: true
             files: |
-                      /home/runner/work/rust-tcp-file-transfer/rust-tcp-file-transfer/Downloads/*linux*/*linux*
-                      /home/runner/work/rust-tcp-file-transfer/rust-tcp-file-transfer/Downloads/*windows*/*windows*
-                      /home/runner/work/rust-tcp-file-transfer/rust-tcp-file-transfer/Downloads/*macos*/*macos*
+                      */rust_tcp_file_transfer_linux_x64_86/rust_tcp_file_transfer_linux_x64_86
+                      */rust_tcp_file_transfer_windows_x64_86/rust_tcp_file_transfer_windows_x64_86.exe
+                      */rust_tcp_file_transfer_macos_x64_86/rust_tcp_file_transfer_macos_x64_86
+          
