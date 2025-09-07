@@ -24,7 +24,7 @@ jobs:
           run: cargo test --verbose
 
         - name: Conventional
-          id: changelog_id
+          id: changelog
           uses: TriPSs/conventional-changelog-action@v4
           with:
              github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -35,4 +35,4 @@ jobs:
           env:
              GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           with:
-             title: ${{ steps.changelog_id.outputs.tag }}
+             title: ${{ steps.changelog.outputs.tag }}
