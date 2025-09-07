@@ -31,12 +31,9 @@ jobs:
 
         - name: Release
           id: release_id
-          uses: actions/create-release@v1
-          env:
-             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          with:       
-             tag_name: ${{ steps.changelog_id.outputs.tag }}
-             release_name: ${{ steps.changelog_id.outputs.tag }}
-             body: ${{steps.changelog_id.outputs.clean_changelog}}
+        - uses: "marvinpinto/action-automatic-releases@latest"
+          with:
+             repo_token: "${{ secrets.GITHUB_TOKEN }}"
+             automatic_release_tag: ${{ steps.changelog_id.outputs.tag }}
 
 
