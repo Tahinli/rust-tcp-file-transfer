@@ -29,14 +29,10 @@ jobs:
              calculatedSha=$(git rev-parse --short ${{ github.sha }})
              echo "::set-output name=short_sha::$calculatedSha"
 
-        - name: Confirm git commit SHA output
-          run: echo ${{ steps.vars.outputs.short_sha }}
-
-
-        - name: ${{ vars }}
+        - name: ${{ steps.vars.outputs.short_sha }}
           uses: softprops/action-gh-release@v0.1.15
           with:
-             tag_name: ${{ vars }}
+             tag_name: ${{ steps.vars.outputs.short_sha }}
              generate_release_notes: true
              files: target/release/rust-tcp-file-transfer
         
