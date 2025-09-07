@@ -205,13 +205,14 @@ impl FileInfo
             {
                 match self.recv_until(stream, '\n')
                     {
-                        Some(handshake) =>
+                        Some(mut handshake) =>
                             {
+                                // try then commit
                                 println!("Done: Handshake -> {}", self.location);
-                                let mut handshake_terminated = handshake.clone();
-                                handshake_terminated.push(b'\n');
-                                self.send_exact(handshake_terminated.as_slice(), stream);
-                                String::from_utf8(handshake.clone()).unwrap().parse().unwrap()
+                                let size = String::from_utf8(handshake.clone()).unwrap().parse().unwrap();
+                                handshake.push(b'\n');
+                                self.send_exact(&handshake.as_slice(), stream);
+                                size
                             }
                         None =>
                             {
